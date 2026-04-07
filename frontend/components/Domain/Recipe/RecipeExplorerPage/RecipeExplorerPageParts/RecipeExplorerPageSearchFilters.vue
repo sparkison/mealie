@@ -63,6 +63,20 @@
     </v-icon>
     {{ $t("household.households") }}
   </SearchFilter>
+
+  <!-- Favorites Filter -->
+  <v-btn
+    v-if="isOwnGroup"
+    size="small"
+    color="secondary-darken-1"
+    :variant="state.filterFavorites ? 'flat' : 'outlined'"
+    @click="state.filterFavorites = !state.filterFavorites"
+  >
+    <v-icon start>
+      {{ state.filterFavorites ? $globals.icons.heart : $globals.icons.heartOutline }}
+    </v-icon>
+    {{ $t("general.favorites") }}
+  </v-btn>
 </template>
 
 <script setup lang="ts">
