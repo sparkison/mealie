@@ -31,6 +31,7 @@ interface RecipeExplorerSearchState {
     requireAllTools: boolean;
     requireAllFoods: boolean;
     randomSeed: number;
+    filterFavorites: boolean;
   }>;
   selectedCategories: Ref<NoUndefinedField<RecipeCategory>[]>;
   selectedFoods: Ref<IngredientFood[]>;
@@ -55,6 +56,7 @@ function createRecipeExplorerSearchState(groupSlug: ComputedRef<string>): Recipe
   const route = useRoute();
 
   const { isOwnGroup } = useLoggedInState();
+  const auth = useMealieAuth();
   const searchQuerySession = useUserSearchQuerySession();
   const sortPreferences = useUserSortPreferences();
 
@@ -70,6 +72,7 @@ function createRecipeExplorerSearchState(groupSlug: ComputedRef<string>): Recipe
     requireAllTools: false,
     requireAllFoods: false,
     randomSeed: 0,
+    filterFavorites: false,
   });
 
   // Store references
@@ -95,6 +98,7 @@ function createRecipeExplorerSearchState(groupSlug: ComputedRef<string>): Recipe
     requireAllTags: false,
     requireAllTools: false,
     requireAllFoods: false,
+    filterFavorites: false,
   };
 
   // Sync sort preferences
@@ -112,6 +116,7 @@ function createRecipeExplorerSearchState(groupSlug: ComputedRef<string>): Recipe
   }
 
   function calcPassedQuery(): RecipeSearchQuery {
+    const userId = auth.user.value?.id;
     return {
       search: state.value.search ? state.value.search : "",
       categories: toIDArray(selectedCategories.value),
@@ -125,6 +130,7 @@ function createRecipeExplorerSearchState(groupSlug: ComputedRef<string>): Recipe
       requireAllFoods: state.value.requireAllFoods,
       orderBy: state.value.orderBy,
       orderDirection: state.value.orderDirection,
+      ...(state.value.filterFavorites && userId ? { queryFilter: `favoritedBy.id = "${userId}"` } : {}),
     };
   }
 
@@ -184,6 +190,7 @@ function createRecipeExplorerSearchState(groupSlug: ComputedRef<string>): Recipe
     state.value.requireAllTags = queryDefaults.requireAllTags;
     state.value.requireAllTools = queryDefaults.requireAllTools;
     state.value.requireAllFoods = queryDefaults.requireAllFoods;
+    state.value.filterFavorites = queryDefaults.filterFavorites;
     selectedCategories.value = [];
     selectedFoods.value = [];
     selectedHouseholds.value = [];
@@ -224,6 +231,7 @@ function createRecipeExplorerSearchState(groupSlug: ComputedRef<string>): Recipe
         requireAllTags: passedQuery.value.requireAllTags ? "true" : undefined,
         requireAllTools: passedQuery.value.requireAllTools ? "true" : undefined,
         requireAllFoods: passedQuery.value.requireAllFoods ? "true" : undefined,
+        favorites: state.value.filterFavorites ? "true" : undefined,
       },
     };
     await router.push({ query });
@@ -287,6 +295,13 @@ function createRecipeExplorerSearchState(groupSlug: ComputedRef<string>): Recipe
     }
     else {
       state.value.requireAllFoods = queryDefaults.requireAllFoods;
+    }
+
+    if (query.favorites?.length) {
+      state.value.filterFavorites = query.favorites === "true";
+    }
+    else {
+      state.value.filterFavorites = queryDefaults.filterFavorites;
     }
 
     const promises: Promise<void>[] = [];
@@ -417,6 +432,7 @@ function createRecipeExplorerSearchState(groupSlug: ComputedRef<string>): Recipe
       () => state.value.requireAllTags,
       () => state.value.requireAllTools,
       () => state.value.requireAllFoods,
+      () => state.value.filterFavorites,
       () => state.value.orderBy,
       () => state.value.orderDirection,
       selectedCategories,
