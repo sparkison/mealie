@@ -18,6 +18,46 @@ if TYPE_CHECKING:
     from ..users import User
     from .household import Household
 
+
+class GroupMealPlanNamedPlan(SqlAlchemyBase, BaseMixins):
+    __tablename__ = "group_meal_plan_named_plans"
+
+    id: Mapped[GUID] = mapped_column(GUID, primary_key=True, default=GUID.generate)
+    name: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    group_id: Mapped[GUID] = mapped_column(GUID, ForeignKey("groups.id"), nullable=False, index=True)
+    entries: Mapped[list["GroupMealPlanNamedPlanEntry"]] = orm.relationship(
+        "GroupMealPlanNamedPlanEntry",
+        back_populates="plan",
+        cascade="all, delete-orphan",
+        order_by="GroupMealPlanNamedPlanEntry.created_at",
+    )
+
+    @auto_init()
+    def __init__(self, **_) -> None:
+        pass
+
+
+class GroupMealPlanNamedPlanEntry(SqlAlchemyBase, BaseMixins):
+    __tablename__ = "group_meal_plan_named_plan_entries"
+
+    id: Mapped[GUID] = mapped_column(GUID, primary_key=True, default=GUID.generate)
+    plan_id: Mapped[GUID] = mapped_column(
+        GUID, ForeignKey("group_meal_plan_named_plans.id"), nullable=False, index=True
+    )
+    recipe_id: Mapped[GUID | None] = mapped_column(GUID, ForeignKey("recipes.id"), nullable=True, index=True)
+    entry_type: Mapped[str] = mapped_column(String, nullable=False, default="dinner")
+    title: Mapped[str] = mapped_column(String, nullable=False, default="")
+    text: Mapped[str] = mapped_column(String, nullable=False, default="")
+    recipe_scale: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
+
+    plan: Mapped["GroupMealPlanNamedPlan"] = orm.relationship("GroupMealPlanNamedPlan", back_populates="entries")
+    recipe: Mapped[Optional["RecipeModel"]] = orm.relationship("RecipeModel", uselist=False)
+
+    @auto_init()
+    def __init__(self, **_) -> None:
+        pass
+
+
 plan_rules_to_households = Table(
     "plan_rules_to_households",
     SqlAlchemyBase.metadata,

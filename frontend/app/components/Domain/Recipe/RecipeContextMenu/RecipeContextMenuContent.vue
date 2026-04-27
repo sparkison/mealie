@@ -40,19 +40,54 @@
     :title="$t('recipe.add-recipe-to-mealplan')"
     color="primary"
     :icon="$globals.icons.calendar"
-    can-confirm
-    @confirm="addRecipeToPlan()"
+    can-submit
+    :submit-text="$t('general.add')"
+    :submit-disabled="mealplannerAddMode === 'named-plan' && !mealplannerPlanId"
+    @submit="onAddToPlan()"
   >
     <v-card-text>
-      <v-date-picker
-        v-model="newMealdate"
-        class="mx-auto mb-3"
-        hide-header
-        show-adjacent-months
-        color="primary"
-        :first-day-of-week="firstDayOfWeek"
-        :local="$i18n.locale"
-      />
+      <v-btn-toggle
+        v-model="mealplannerAddMode"
+        mandatory
+        density="compact"
+        class="mb-4"
+        style="width: 100%"
+      >
+        <v-btn value="date" style="flex: 1">
+          <v-icon start>
+            {{ $globals.icons.calendar }}
+          </v-icon>
+          {{ $t('general.date') }}
+        </v-btn>
+        <v-btn value="named-plan" style="flex: 1">
+          <v-icon start>
+            {{ $globals.icons.tags }}
+          </v-icon>
+          {{ $t('meal-plan.custom-plans') }}
+        </v-btn>
+      </v-btn-toggle>
+      <template v-if="mealplannerAddMode === 'date'">
+        <v-date-picker
+          v-model="newMealdate"
+          class="mx-auto mb-3"
+          hide-header
+          show-adjacent-months
+          color="primary"
+          :first-day-of-week="firstDayOfWeek"
+          :local="$i18n.locale"
+        />
+      </template>
+      <template v-else>
+        <v-select
+          v-model="mealplannerPlanId"
+          :items="namedPlans"
+          item-title="name"
+          item-value="id"
+          :label="$t('meal-plan.custom-plan')"
+          :loading="namedPlansLoading"
+          class="mb-2"
+        />
+      </template>
       <v-select
         v-model="newMealType"
         :return-object="false"
@@ -111,7 +146,7 @@ import { alert } from "~/composables/use-toast";
 import { usePlanTypeOptions } from "~/composables/use-group-mealplan";
 import type { Recipe } from "~/lib/api/types/recipe";
 import type { GroupRecipeActionOut, ShoppingListSummary } from "~/lib/api/types/household";
-import type { PlanEntryType } from "~/lib/api/types/meal-plan";
+import type { PlanEntryType, ReadNamedMealPlan } from "~/lib/api/types/meal-plan";
 import { useDownloader } from "~/composables/api/use-downloader";
 
 export interface ContextMenuIncludes {
@@ -191,6 +226,10 @@ const loading = ref(false);
 const menuItems = ref<ContextMenuItem[]>([]);
 const newMealdate = ref(new Date());
 const newMealType = ref<PlanEntryType>("dinner");
+const mealplannerAddMode = ref<"date" | "named-plan">("date");
+const mealplannerPlanId = ref<string | null>(null);
+const namedPlans = ref<ReadNamedMealPlan[]>([]);
+const namedPlansLoading = ref(false);
 
 const newMealdateString = computed(() => {
   // Format the date to YYYY-MM-DD in the same timezone as newMealdate
@@ -368,6 +407,40 @@ async function handleDownloadEvent() {
   }
 
   download(api.recipes.share.getZipRedirectUrl(shareToken.id), `${props.slug}.zip`);
+}
+
+async function fetchNamedPlans() {
+  namedPlansLoading.value = true;
+  const { data } = await api.namedMealPlans.getAll(1, -1, { orderBy: "name", orderDirection: "asc" });
+  if (data) namedPlans.value = data.items;
+  namedPlansLoading.value = false;
+}
+
+watch(mealplannerAddMode, (mode) => {
+  if (mode === "named-plan" && namedPlans.value.length === 0) {
+    fetchNamedPlans();
+  }
+});
+
+async function onAddToPlan() {
+  if (mealplannerAddMode.value === "named-plan" && mealplannerPlanId.value) {
+    const { data } = await api.namedMealPlans.addEntry(mealplannerPlanId.value, {
+      recipeId: props.recipeId,
+      entryType: newMealType.value,
+      title: "",
+      text: "",
+      recipeScale: props.recipeScale ?? 1,
+    });
+    if (data) {
+      alert.success(i18n.t("recipe.recipe-added-to-mealplan") as string);
+    }
+    else {
+      alert.error(i18n.t("recipe.failed-to-add-recipe-to-mealplan") as string);
+    }
+  }
+  else {
+    await addRecipeToPlan();
+  }
 }
 
 async function addRecipeToPlan() {

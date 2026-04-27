@@ -7,6 +7,7 @@ from . import (
     controller_household_self_service,
     controller_invitations,
     controller_mealplan,
+    controller_mealplan_named_plans,
     controller_mealplan_rules,
     controller_shopping_lists,
     controller_webhooks,
@@ -23,6 +24,7 @@ router.include_router(controller_shopping_lists.router)
 router.include_router(controller_shopping_lists.item_router)
 router.include_router(controller_webhooks.router)
 
-# mealplan_rules must be added before mealplan due to the way the routes are defined
+# More-specific mealplan prefixes must be registered before the base mealplan router
+router.include_router(controller_mealplan_named_plans.router)
 router.include_router(controller_mealplan_rules.router)
 router.include_router(controller_mealplan.router)

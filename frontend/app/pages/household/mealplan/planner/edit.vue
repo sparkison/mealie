@@ -1,6 +1,6 @@
 <template>
   <div>
-    <!-- Create Meal Dialog -->
+    <!-- Create/Edit Meal Dialog (shared by date mode and named-plan mode) -->
     <BaseDialog
       v-model="state.dialog"
       :title="newMeal.existing ? $t('meal-plan.update-this-meal-plan') : $t('meal-plan.create-a-new-meal-plan')"
@@ -9,21 +9,12 @@
       :icon="$globals.icons.foods"
       :submit-disabled="isCreateDisabled"
       can-submit
-      @submit="
-        () => {
-          if (newMeal.existing) {
-            actions.updateOne({ ...newMeal, date: newMealDateString });
-          }
-          else {
-            actions.createOne({ ...newMeal, date: newMealDateString });
-          }
-          resetDialog();
-        }
-      "
+      @submit="onDialogSubmit"
       @close="resetDialog()"
     >
       <v-card-text class="pb-2">
         <v-date-picker
+          v-if="viewMode !== 'named-plan'"
           v-model="newMeal.date"
           class="mx-auto"
           hide-header
@@ -74,7 +65,138 @@
         </v-card-actions>
       </v-card-text>
     </BaseDialog>
-    <v-row>
+
+    <!-- Named plan edit view -->
+    <template v-if="viewMode === 'named-plan'">
+      <v-alert
+        v-if="!props.namedPlanId"
+        type="info"
+        variant="tonal"
+        class="mb-4"
+      >
+        {{ $t('meal-plan.custom-plan-select-edit-prompt') }}
+      </v-alert>
+      <v-row v-else>
+        <v-col
+          cols="12"
+          sm="12"
+          md="6"
+          lg="4"
+          xl="3"
+          xxl="2"
+          class="col-borders my-1 d-flex flex-column"
+        >
+          <v-card class="mb-2 border-left-primary rounded-sm pa-2">
+            <p class="pl-2 mb-1">
+              {{ $t('meal-plan.custom-plan') }}
+            </p>
+          </v-card>
+          <v-card
+            v-for="entry in props.namedPlanEntries"
+            :key="entry.id"
+            class="my-1"
+          >
+            <v-list-item lines="three" @click="editNamedEntry(entry)">
+              <template #prepend>
+                <v-avatar>
+                  <RecipeCardImage
+                    v-if="entry.recipe"
+                    :recipe-id="entry.recipe.id!"
+                    tiny
+                    icon-size="25"
+                    :slug="entry.recipe.slug ?? ''"
+                  />
+                  <v-icon v-else>
+                    {{ $globals.icons.primary }}
+                  </v-icon>
+                </v-avatar>
+              </template>
+              <v-list-item-title class="mb-1">
+                {{ entry.recipe ? entry.recipe.name : entry.title }}
+                <v-chip
+                  v-if="entry.recipe && entry.recipeScale && entry.recipeScale !== 1"
+                  size="x-small"
+                  color="primary"
+                  variant="tonal"
+                  class="ml-1"
+                >
+                  {{ entry.recipeScale }}x
+                </v-chip>
+              </v-list-item-title>
+              <v-list-item-subtitle style="min-height: 16px">
+                {{ entry.recipe ? entry.recipe.description : entry.text }}
+              </v-list-item-subtitle>
+            </v-list-item>
+            <v-divider class="mx-2" />
+            <div class="py-2 px-2 d-flex align-center">
+              <v-menu offset-y>
+                <template #activator="{ props: menuProps }">
+                  <v-chip
+                    v-bind="menuProps"
+                    label
+                    variant="elevated"
+                    size="small"
+                    color="accent"
+                    @click.prevent
+                  >
+                    <v-icon start>
+                      {{ $globals.icons.tags }}
+                    </v-icon>
+                    {{ getEntryTypeText(entry.entryType!) }}
+                  </v-chip>
+                </template>
+                <v-list>
+                  <v-list-item
+                    v-for="mealType in planTypeOptions"
+                    :key="mealType.value"
+                    @click="props.namedPlanActions?.updateEntry(entry.id, { ...entry, recipeId: entry.recipeId, entryType: mealType.value })"
+                  >
+                    <v-list-item-title>{{ mealType.text }}</v-list-item-title>
+                  </v-list-item>
+                </v-list>
+              </v-menu>
+              <v-btn class="ml-auto" size="small" variant="text" icon @click="props.namedPlanActions?.deleteEntry(entry.id)">
+                <v-icon>{{ $globals.icons.delete }}</v-icon>
+              </v-btn>
+            </div>
+          </v-card>
+          <div class="d-flex justify-end mt-auto">
+            <BaseButtonGroup
+              :buttons="[
+                {
+                  icon: $globals.icons.diceMultiple,
+                  text: $t('meal-plan.random-meal'),
+                  event: 'random',
+                  children: [
+                    { icon: $globals.icons.diceMultiple, text: $t('meal-plan.breakfast'), event: 'randomBreakfast' },
+                    { icon: $globals.icons.diceMultiple, text: $t('meal-plan.lunch'), event: 'randomLunch' },
+                    { icon: $globals.icons.diceMultiple, text: $t('meal-plan.dinner'), event: 'randomDinner' },
+                    { icon: $globals.icons.diceMultiple, text: $t('meal-plan.side'), event: 'randomSide' },
+                    { icon: $globals.icons.diceMultiple, text: $t('meal-plan.snack'), event: 'randomSnack' },
+                    { icon: $globals.icons.diceMultiple, text: $t('meal-plan.drink'), event: 'randomDrink' },
+                    { icon: $globals.icons.diceMultiple, text: $t('meal-plan.dessert'), event: 'randomDessert' },
+                  ],
+                },
+                { icon: $globals.icons.potSteam, text: $t('meal-plan.random-dinner'), event: 'randomDinner' },
+                { icon: $globals.icons.bowlMixOutline, text: $t('meal-plan.random-side'), event: 'randomSide' },
+                { icon: $globals.icons.createAlt, text: $t('general.new'), event: 'create' },
+              ]"
+              @create="openNamedDialog()"
+              @random-breakfast="props.namedPlanActions?.addRandomEntry('breakfast')"
+              @random-lunch="props.namedPlanActions?.addRandomEntry('lunch')"
+              @random-dinner="props.namedPlanActions?.addRandomEntry('dinner')"
+              @random-side="props.namedPlanActions?.addRandomEntry('side')"
+              @random-snack="props.namedPlanActions?.addRandomEntry('snack')"
+              @random-drink="props.namedPlanActions?.addRandomEntry('drink')"
+              @random-dessert="props.namedPlanActions?.addRandomEntry('dessert')"
+            />
+          </div>
+        </v-col>
+      </v-row>
+    </template>
+
+    <!-- Date-based edit view -->
+    <v-row v-else>
       <v-col
         v-for="(plan, index) in mealplans"
         :key="index"
@@ -259,15 +381,26 @@ import type { MealsByDate } from "./view.vue";
 import type { useMealplans } from "~/composables/use-group-mealplan";
 import { usePlanTypeOptions, getEntryTypeText } from "~/composables/use-group-mealplan";
 import RecipeCardImage from "~/components/Domain/Recipe/RecipeCardImage.vue";
-import type { PlanEntryType, UpdatePlanEntry } from "~/lib/api/types/meal-plan";
+import type { CreateNamedPlanEntry, PlanEntryType, ReadNamedPlanEntry, UpdatePlanEntry } from "~/lib/api/types/meal-plan";
 import { useUserApi } from "~/composables/api";
 import { useHouseholdSelf } from "~/composables/use-households";
 import { normalizeFilter } from "~/composables/use-utils";
 import { useRecipeSearch } from "~/composables/recipes/use-recipe-search";
 
+type NamedPlanActions = {
+  addEntry: (data: CreateNamedPlanEntry) => Promise<void>;
+  updateEntry: (entryId: string, data: CreateNamedPlanEntry) => Promise<void>;
+  deleteEntry: (entryId: string) => Promise<void>;
+  addRandomEntry: (entryType: string) => Promise<void>;
+};
+
 const props = defineProps<{
   mealplans: MealsByDate[];
   actions: ReturnType<typeof useMealplans>["actions"];
+  viewMode?: string;
+  namedPlanEntries?: ReadNamedPlanEntry[];
+  namedPlanId?: string | null;
+  namedPlanActions?: NamedPlanActions;
 }>();
 
 const api = useUserApi();
@@ -366,9 +499,57 @@ const isCreateDisabled = computed(() => {
   return !newMeal.recipeId;
 });
 
+// Track which named plan entry is being edited
+const editingNamedEntryId = ref<string | null>(null);
+
 function openDialog(date: Date) {
   newMeal.date = date;
   state.value.dialog = true;
+}
+
+function openNamedDialog() {
+  resetDialog();
+  editingNamedEntryId.value = null;
+  state.value.dialog = true;
+}
+
+function editNamedEntry(entry: ReadNamedPlanEntry) {
+  newMeal.title = entry.title || "";
+  newMeal.text = entry.text || "";
+  newMeal.recipeId = entry.recipeId || undefined;
+  newMeal.recipeScale = entry.recipeScale ?? 1.0;
+  newMeal.entryType = (entry.entryType as PlanEntryType) || "dinner";
+  newMeal.existing = true;
+  editingNamedEntryId.value = entry.id;
+  dialog.note = !entry.recipeId;
+  state.value.dialog = true;
+}
+
+async function onDialogSubmit() {
+  if (props.viewMode === "named-plan" && props.namedPlanActions) {
+    const data: CreateNamedPlanEntry = {
+      recipeId: newMeal.recipeId || null,
+      entryType: newMeal.entryType as PlanEntryType,
+      title: newMeal.title,
+      text: newMeal.text,
+      recipeScale: newMeal.recipeScale,
+    };
+    if (newMeal.existing && editingNamedEntryId.value) {
+      await props.namedPlanActions.updateEntry(editingNamedEntryId.value, data);
+    }
+    else {
+      await props.namedPlanActions.addEntry(data);
+    }
+  }
+  else {
+    if (newMeal.existing) {
+      props.actions.updateOne({ ...newMeal, date: newMealDateString.value });
+    }
+    else {
+      props.actions.createOne({ ...newMeal, date: newMealDateString.value });
+    }
+  }
+  resetDialog();
 }
 
 function editMeal(mealplan: UpdatePlanEntry) {
@@ -399,6 +580,7 @@ function resetDialog() {
   newMeal.recipeId = undefined;
   newMeal.recipeScale = 1.0;
   newMeal.existing = false;
+  editingNamedEntryId.value = null;
 }
 
 async function randomMeal(date: Date, type: PlanEntryType) {
