@@ -524,6 +524,13 @@ watch(selectedPlanId, async (id) => {
   else planEntries.value = [];
 }, { immediate: true });
 
+// Auto-select the only plan when in named-plan mode with exactly one option
+watch([() => viewMode.value, plans], ([mode]) => {
+  if (mode === "named-plan" && !selectedPlanId.value && plans.value.length === 1) {
+    selectedPlanId.value = plans.value[0]!.id;
+  }
+});
+
 async function onCreatePlan() {
   if (!newPlanName.value.trim()) return;
   const plan = await createPlan(newPlanName.value.trim());
