@@ -147,6 +147,8 @@ interface Props {
   disableHighlight?: boolean;
   scale?: number;
   mealPlanId?: number;
+  namedPlanEntryId?: string;
+  namedPlanId?: string;
 }
 const props = withDefaults(defineProps<Props>(), {
   rating: 0,
@@ -158,6 +160,8 @@ const props = withDefaults(defineProps<Props>(), {
   disableHighlight: false,
   scale: 1,
   mealPlanId: undefined,
+  namedPlanEntryId: undefined,
+  namedPlanId: undefined,
 });
 
 defineEmits<{
@@ -177,6 +181,8 @@ const recipeRoute = computed<string>(() => {
   const params = new URLSearchParams();
   if (props.scale !== 1) params.set("scale", String(props.scale));
   if (props.mealPlanId !== undefined) params.set("mealplanid", String(props.mealPlanId));
+  if (props.namedPlanEntryId) params.set("namedplanentryid", props.namedPlanEntryId);
+  if (props.namedPlanId) params.set("namedplanid", props.namedPlanId);
   const queryString = params.toString();
   return queryString ? `${base}?${queryString}` : base;
 });

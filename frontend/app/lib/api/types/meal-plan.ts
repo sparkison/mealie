@@ -12,6 +12,45 @@ export type LogicalOperator = "AND" | "OR";
 export type RelationalKeyword = "IS" | "IS NOT" | "IN" | "NOT IN" | "CONTAINS ALL" | "LIKE" | "NOT LIKE";
 export type RelationalOperator = "=" | "<>" | ">" | "<" | ">=" | "<=";
 
+export interface CreateNamedMealPlan {
+  name: string;
+}
+export interface ReadNamedMealPlan {
+  id: string;
+  name: string;
+  groupId: string;
+  createdAt?: string | null;
+}
+export interface NamedMealPlanPagination {
+  items: ReadNamedMealPlan[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+  next?: string | null;
+  previous?: string | null;
+}
+export interface CreateNamedPlanEntry {
+  recipeId?: string | null;
+  entryType?: PlanEntryType;
+  title?: string;
+  text?: string;
+  recipeScale?: number;
+}
+export interface ReadNamedPlanEntry {
+  id: string;
+  planId: string;
+  recipeId?: string | null;
+  entryType?: PlanEntryType;
+  title?: string;
+  text?: string;
+  recipeScale?: number;
+  recipe?: RecipeSummary | null;
+  createdAt?: string | null;
+}
+export interface ApplyNamedPlanPayload {
+  startDate: string;
+}
 export interface CreatePlanEntry {
   date: string;
   entryType?: PlanEntryType;

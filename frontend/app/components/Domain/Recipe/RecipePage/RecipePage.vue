@@ -216,7 +216,7 @@ import type { Recipe, RecipeCategory, RecipeIngredient, RecipeTag, RecipeTool } 
 import { useRouteQuery } from "~/composables/use-router";
 import { useUserApi } from "~/composables/api";
 import { uuid4, deepCopy } from "~/composables/use-utils";
-import type { ReadPlanEntry } from "~/lib/api/types/meal-plan";
+import type { ReadNamedPlanEntry, ReadPlanEntry } from "~/lib/api/types/meal-plan";
 import RecipeDialogBulkAdd from "~/components/Domain/Recipe/RecipeDialogBulkAdd.vue";
 import RecipeNotes from "~/components/Domain/Recipe/RecipeNotes.vue";
 import { useLoggedInState } from "~/composables/use-logged-in-state";
@@ -330,8 +330,11 @@ const paramsEdit = useRouteQuery<BooleanString>("edit", "");
 const paramsParse = useRouteQuery<BooleanString>("parse", "");
 const paramsScale = useRouteQuery<string>("scale", "");
 const paramsMealPlanId = useRouteQuery<string>("mealplanid", "");
+const paramsNamedPlanEntryId = useRouteQuery<string>("namedplanentryid", "");
+const paramsNamedPlanId = useRouteQuery<string>("namedplanid", "");
 
 const mealPlanEntry = ref<ReadPlanEntry | null>(null);
+const namedPlanEntry = ref<ReadNamedPlanEntry | null>(null);
 
 onMounted(async () => {
   if (paramsEdit.value === "true" && isOwnGroup.value) {
@@ -355,24 +358,51 @@ onMounted(async () => {
       const { data } = await api.mealplans.getOne(id);
       if (data) {
         mealPlanEntry.value = data;
+        scale.value = data.recipeScale ?? scale.value;
       }
+    }
+  }
+
+  if (paramsNamedPlanEntryId.value && paramsNamedPlanId.value) {
+    const { data } = await api.namedMealPlans.getEntry(paramsNamedPlanId.value, paramsNamedPlanEntryId.value);
+    if (data) {
+      namedPlanEntry.value = data;
+      scale.value = data.recipeScale ?? scale.value;
     }
   }
 });
 
 let mealPlanScaleTimer: ReturnType<typeof setTimeout> | null = null;
 watch(scale, (newScale) => {
-  if (!mealPlanEntry.value) return;
-  if ((mealPlanEntry.value.recipeScale ?? 1) === newScale) return;
-  if (mealPlanScaleTimer) clearTimeout(mealPlanScaleTimer);
-  mealPlanScaleTimer = setTimeout(async () => {
-    if (!mealPlanEntry.value) return;
-    const updated = { ...mealPlanEntry.value, recipeScale: newScale };
-    const { data } = await api.mealplans.updateOne(updated.id, updated);
-    if (data) {
-      mealPlanEntry.value = data;
-    }
-  }, 400);
+  if (mealPlanEntry.value) {
+    if ((mealPlanEntry.value.recipeScale ?? 1) === newScale) return;
+    if (mealPlanScaleTimer) clearTimeout(mealPlanScaleTimer);
+    mealPlanScaleTimer = setTimeout(async () => {
+      if (!mealPlanEntry.value) return;
+      const updated = { ...mealPlanEntry.value, recipeScale: newScale };
+      const { data } = await api.mealplans.updateOne(updated.id, updated);
+      if (data) mealPlanEntry.value = data;
+    }, 400);
+  }
+  else if (namedPlanEntry.value) {
+    if ((namedPlanEntry.value.recipeScale ?? 1) === newScale) return;
+    if (mealPlanScaleTimer) clearTimeout(mealPlanScaleTimer);
+    mealPlanScaleTimer = setTimeout(async () => {
+      if (!namedPlanEntry.value) return;
+      const { data } = await api.namedMealPlans.updateEntry(
+        namedPlanEntry.value.planId,
+        namedPlanEntry.value.id,
+        {
+          recipeId: namedPlanEntry.value.recipeId,
+          entryType: namedPlanEntry.value.entryType,
+          title: namedPlanEntry.value.title,
+          text: namedPlanEntry.value.text,
+          recipeScale: newScale,
+        },
+      );
+      if (data) namedPlanEntry.value = data;
+    }, 400);
+  }
 });
 
 watch(isEditMode, (newVal) => {

@@ -1,6 +1,72 @@
 <template>
   <v-container class="mx-0 my-3 pa">
-    <v-row>
+    <!-- Custom plan mode: single column -->
+    <template v-if="viewMode === 'named-plan'">
+      <v-alert
+        v-if="!namedPlanEntries || namedPlanEntries.length === 0"
+        type="info"
+        variant="tonal"
+        class="mb-4"
+      >
+        {{ namedPlanEntries !== undefined ? $t('meal-plan.custom-plan-no-entries') : $t('meal-plan.custom-plan-select-prompt') }}
+      </v-alert>
+      <v-row v-else>
+        <v-col
+          cols="12"
+          sm="12"
+          md="6"
+          lg="4"
+          xl="3"
+          xxl="2"
+          class="col-borders my-1 d-flex flex-column"
+        >
+          <v-card class="mb-2 border-left-primary rounded-sm px-2">
+            <v-container class="px-0 d-flex align-center" height="56px">
+              <p class="pl-2 my-1">
+                Custom Plan
+              </p>
+            </v-container>
+          </v-card>
+          <div v-for="section in namedPlanSections" :key="section.title">
+            <div class="py-2 d-flex flex-column">
+              <div class="primary" style="width: 50px; height: 2.5px" />
+              <p class="text-overline my-0">
+                {{ section.title }}
+              </p>
+            </div>
+            <div
+              v-for="entry in section.meals"
+              :key="entry.id"
+              class="mb-2"
+            >
+              <RecipeCardMobile
+                :recipe-id="entry.recipe ? entry.recipe.id! : ''"
+                :rating="entry.recipe ? entry.recipe.rating! : 0"
+                :slug="entry.recipe ? entry.recipe.slug! : entry.title!"
+                :description="entry.recipe ? entry.recipe.description! : entry.text!"
+                :name="entry.recipe ? entry.recipe.name! : entry.title!"
+                :tags="entry.recipe ? (entry.recipe.tags ?? []) : []"
+                :scale="entry.recipeScale ?? 1"
+                :named-plan-entry-id="entry.id"
+                :named-plan-id="props.namedPlanId ?? undefined"
+              />
+              <div
+                v-if="entry.recipe && props.onNamedEntryScale"
+                class="d-flex justify-center pt-1 pb-2"
+              >
+                <NamedPlanScaleControl
+                  :entry="entry"
+                  :on-scale-change="(scale: number) => props.onNamedEntryScale!(entry.id, scale)"
+                />
+              </div>
+            </div>
+          </div>
+        </v-col>
+      </v-row>
+    </template>
+
+    <!-- Date mode: existing per-day columns -->
+    <v-row v-else>
       <v-col
         v-for="(day, index) in plan"
         :key="index"
@@ -65,9 +131,10 @@
 <script setup lang="ts">
 import { isSameDay } from "date-fns";
 
-import type { ReadPlanEntry } from "~/lib/api/types/meal-plan";
+import type { ReadNamedPlanEntry, ReadPlanEntry } from "~/lib/api/types/meal-plan";
 import GroupMealPlanDayContextMenu from "~/components/Domain/Household/GroupMealPlanDayContextMenu.vue";
 import MealPlanScaleControl from "~/components/Domain/Household/MealPlanScaleControl.vue";
+import NamedPlanScaleControl from "~/components/Domain/Household/NamedPlanScaleControl.vue";
 import RecipeCardMobile from "~/components/Domain/Recipe/RecipeCardMobile.vue";
 import type { useMealplans } from "~/composables/use-group-mealplan";
 
@@ -79,11 +146,20 @@ export type MealsByDate = {
 const props = defineProps<{
   mealplans: MealsByDate[];
   actions: ReturnType<typeof useMealplans>["actions"];
+  viewMode?: string;
+  namedPlanEntries?: ReadNamedPlanEntry[];
+  namedPlanId?: string | null;
+  onNamedEntryScale?: (entryId: string, scale: number) => void;
 }>();
 
 type DaySection = {
   title: string;
   meals: ReadPlanEntry[];
+};
+
+type NamedPlanSection = {
+  title: string;
+  meals: ReadNamedPlanEntry[];
 };
 
 type Days = {
@@ -93,6 +169,31 @@ type Days = {
 };
 
 const i18n = useI18n();
+
+// Named plan sections: group entries by entry type
+const namedPlanSections = computed<NamedPlanSection[]>(() => {
+  const entries = props.namedPlanEntries ?? [];
+  const sections: NamedPlanSection[] = [
+    { title: i18n.t("meal-plan.breakfast"), meals: [] },
+    { title: i18n.t("meal-plan.lunch"), meals: [] },
+    { title: i18n.t("meal-plan.dinner"), meals: [] },
+    { title: i18n.t("meal-plan.side"), meals: [] },
+    { title: i18n.t("meal-plan.snack"), meals: [] },
+    { title: i18n.t("meal-plan.drink"), meals: [] },
+    { title: i18n.t("meal-plan.dessert"), meals: [] },
+  ];
+  for (const entry of entries) {
+    if (entry.entryType === "breakfast") sections[0].meals.push(entry);
+    else if (entry.entryType === "lunch") sections[1].meals.push(entry);
+    else if (entry.entryType === "dinner") sections[2].meals.push(entry);
+    else if (entry.entryType === "side") sections[3].meals.push(entry);
+    else if (entry.entryType === "snack") sections[4].meals.push(entry);
+    else if (entry.entryType === "drink") sections[5].meals.push(entry);
+    else if (entry.entryType === "dessert") sections[6].meals.push(entry);
+    else sections[2].meals.push(entry);
+  }
+  return sections.filter(s => s.meals.length > 0);
+});
 
 const plan = computed<Days[]>(() => {
   return props.mealplans.reduce((acc, day) => {
