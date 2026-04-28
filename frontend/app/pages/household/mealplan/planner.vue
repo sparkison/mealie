@@ -63,7 +63,6 @@
         <v-text-field
           v-model="newPlanNameForAdd"
           :label="$t('meal-plan.custom-plan-move-new-label')"
-          clearable
           :disabled="!!addToPlanId"
         />
       </v-card-text>
