@@ -1,5 +1,5 @@
 <template>
-  <v-container class="mx-0 my-3 pa">
+  <div class="my-3">
     <!-- Custom plan mode: single column -->
     <template v-if="viewMode === 'named-plan'">
       <v-alert
@@ -125,7 +125,7 @@
         </div>
       </v-col>
     </v-row>
-  </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">
