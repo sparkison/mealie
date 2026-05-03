@@ -271,20 +271,17 @@
       </v-col>
       <v-col cols="12" sm="auto" class="d-flex align-center ga-2 flex-wrap ms-sm-auto">
         <template v-if="route.name === TABS.view && viewMode === 'date'">
-          <v-tooltip :text="$t('meal-plan.add-all-to-list')">
-            <template #activator="{ props: tooltipProps }">
-              <v-btn
-                v-bind="tooltipProps"
-                color="info"
-                :disabled="!hasRecipes"
-                :loading="state.addAllLoading"
-                @click="addAllToList"
-              >
-                <v-icon :start="mdAndUp">{{ $globals.icons.cartCheck }}</v-icon>
-                <span v-if="mdAndUp">{{ $t('meal-plan.add-all-to-list') }}</span>
-              </v-btn>
-            </template>
-          </v-tooltip>
+          <v-btn
+            color="info"
+            :disabled="!hasRecipes"
+            :loading="state.addAllLoading"
+            @click="addAllToList"
+          >
+            <v-icon :start="mdAndUp">
+              {{ $globals.icons.cartCheck }}
+            </v-icon>
+            <span>{{ $t('meal-plan.add-all-to-list') }}</span>
+          </v-btn>
           <v-tooltip :text="$t('meal-plan.custom-plan-move-all')">
             <template #activator="{ props: tooltipProps }">
               <v-btn
@@ -293,7 +290,9 @@
                 :disabled="!hasMeals"
                 @click="addToPlanDialog = true"
               >
-                <v-icon :start="mdAndUp">{{ $globals.icons.tags }}</v-icon>
+                <v-icon :start="mdAndUp">
+                  {{ $globals.icons.tags }}
+                </v-icon>
                 <span v-if="mdAndUp">{{ $t('meal-plan.custom-plan-move-all') }}</span>
               </v-btn>
             </template>
@@ -307,7 +306,9 @@
               :disabled="!selectedPlanId || planEntries.length === 0"
               @click="applyDialog = true"
             >
-              <v-icon :start="mdAndUp">{{ $globals.icons.calendar }}</v-icon>
+              <v-icon :start="mdAndUp">
+                {{ $globals.icons.calendar }}
+              </v-icon>
               <span v-if="mdAndUp">{{ $t('meal-plan.custom-plan-apply-btn') }}</span>
             </v-btn>
           </template>
@@ -318,7 +319,9 @@
               v-bind="tooltipProps"
               :to="`/household/mealplan/settings`"
             >
-              <v-icon :start="mdAndUp">{{ $globals.icons.calendar }}</v-icon>
+              <v-icon :start="mdAndUp">
+                {{ $globals.icons.calendar }}
+              </v-icon>
               <span v-if="mdAndUp">{{ $t('general.settings') }}</span>
             </v-btn>
           </template>
