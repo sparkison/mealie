@@ -129,65 +129,67 @@
     </BaseDialog>
 
     <!-- Header row: date picker (date mode) / plan controls (custom plan mode) + mode toggle -->
-    <div class="d-flex flex-wrap align-center gap-2 mb-2">
+    <v-row align="center" class="mb-1">
       <!-- Date mode: date range picker -->
-      <v-menu
-        v-if="viewMode === 'date'"
-        v-model="state.picker"
-        :close-on-content-click="false"
-        transition="scale-transition"
-        offset-y
-        min-width="auto"
-      >
-        <template #activator="{ props }">
-          <v-btn
-            color="primary"
-            v-bind="props"
-          >
-            <v-icon start>
-              {{ $globals.icons.calendar }}
-            </v-icon>
-            {{ $d(weekRange.start, "short") }} - {{ $d(weekRange.end, "short") }}
-          </v-btn>
-        </template>
+      <v-col v-if="viewMode === 'date'" cols="12" sm="auto">
+        <v-menu
+          v-model="state.picker"
+          :close-on-content-click="false"
+          transition="scale-transition"
+          offset-y
+          min-width="auto"
+        >
+          <template #activator="{ props }">
+            <v-btn
+              color="primary"
+              v-bind="props"
+              class="w-100 w-sm-auto"
+            >
+              <v-icon start>
+                {{ $globals.icons.calendar }}
+              </v-icon>
+              {{ $d(weekRange.start, "short") }} - {{ $d(weekRange.end, "short") }}
+            </v-btn>
+          </template>
 
-        <v-card>
-          <v-date-picker
-            v-model="state.range"
-            hide-header
-            :multiple="'range'"
-            :first-day-of-week="firstDayOfWeek"
-            :local="$i18n.locale"
-          />
-
-          <v-card-text>
-            <v-number-input
-              v-model="numberOfDaysPast"
-              :min="0"
-              control-variant="stacked"
-              inset
-              :label="$t('meal-plan.numberOfDaysPast-label')"
-              :hint="$t('meal-plan.numberOfDaysPast-hint')"
-              persistent-hint
+          <v-card>
+            <v-date-picker
+              v-model="state.range"
+              hide-header
+              :multiple="'range'"
+              :first-day-of-week="firstDayOfWeek"
+              :local="$i18n.locale"
             />
-          </v-card-text>
 
-          <v-card-text>
-            <v-number-input
-              v-model="numberOfDays"
-              :min="1"
-              control-variant="stacked"
-              inset
-              :label="$t('meal-plan.numberOfDays-label')"
-              :hint="$t('meal-plan.numberOfDays-hint')"
-              persistent-hint
-            />
-          </v-card-text>
-        </v-card>
-      </v-menu>
+            <v-card-text>
+              <v-number-input
+                v-model="numberOfDaysPast"
+                :min="0"
+                control-variant="stacked"
+                inset
+                :label="$t('meal-plan.numberOfDaysPast-label')"
+                :hint="$t('meal-plan.numberOfDaysPast-hint')"
+                persistent-hint
+              />
+            </v-card-text>
+
+            <v-card-text>
+              <v-number-input
+                v-model="numberOfDays"
+                :min="1"
+                control-variant="stacked"
+                inset
+                :label="$t('meal-plan.numberOfDays-label')"
+                :hint="$t('meal-plan.numberOfDays-hint')"
+                persistent-hint
+              />
+            </v-card-text>
+          </v-card>
+        </v-menu>
+      </v-col>
 
       <!-- Custom plan mode: plan selector + actions -->
-      <template v-if="viewMode === 'named-plan'">
+      <v-col v-if="viewMode === 'named-plan'" cols="12" sm="auto" class="d-flex align-center ga-2">
         <v-select
           v-model="selectedPlanId"
           :items="plans"
@@ -197,7 +199,8 @@
           clearable
           density="compact"
           hide-details
-          style="max-width: 300px"
+          class="flex-grow-1"
+          style="min-width: 200px; max-width: 400px"
         />
         <v-btn
           icon
@@ -228,74 +231,103 @@
         >
           <v-icon>{{ $globals.icons.delete }}</v-icon>
         </v-btn>
-      </template>
+      </v-col>
 
-      <!-- Mode toggle (always at right) -->
-      <v-btn-toggle
-        v-model="viewMode"
-        mandatory
-        density="compact"
-        class="ml-auto"
-      >
-        <v-btn value="date" size="small">
-          <v-icon start>
-            {{ $globals.icons.calendar }}
-          </v-icon>
-          {{ $t('general.date') }}
-        </v-btn>
-        <v-btn value="named-plan" size="small">
-          <v-icon start>
-            {{ $globals.icons.tags }}
-          </v-icon>
-          {{ $t('meal-plan.custom-plans') }}
-        </v-btn>
-      </v-btn-toggle>
-    </div>
+      <!-- Mode toggle: full-width on mobile, pushed right on larger screens -->
+      <v-col cols="12" sm="auto" class="ms-sm-auto">
+        <v-btn-toggle
+          v-model="viewMode"
+          mandatory
+          density="compact"
+          class="w-100 w-sm-auto"
+        >
+          <v-btn value="date" size="small" class="flex-grow-1 flex-sm-grow-0">
+            <v-icon start>
+              {{ $globals.icons.calendar }}
+            </v-icon>
+            {{ $t('general.date') }}
+          </v-btn>
+          <v-btn value="named-plan" size="small" class="flex-grow-1 flex-sm-grow-0">
+            <v-icon start>
+              {{ $globals.icons.tags }}
+            </v-icon>
+            {{ $t('meal-plan.custom-plans') }}
+          </v-btn>
+        </v-btn-toggle>
+      </v-col>
+    </v-row>
 
     <!-- Tabs + action buttons -->
-    <div class="d-flex flex-wrap align-center justify-space-between mb-2">
-      <v-tabs style="width: fit-content;">
-        <v-tab :to="{ name: TABS.view, query: route.query }">
-          {{ $t('meal-plan.meal-planner') }}
-        </v-tab>
-        <v-tab :to="{ name: TABS.edit, query: route.query }">
-          {{ $t('general.edit') }}
-        </v-tab>
-      </v-tabs>
-      <BaseButton
-        v-if="route.name === TABS.view && viewMode === 'date'"
-        color="info"
-        :icon="$globals.icons.cartCheck"
-        :text="$t('meal-plan.add-all-to-list')"
-        :disabled="!hasRecipes"
-        :loading="state.addAllLoading"
-        class="ml-auto mr-4"
-        @click="addAllToList"
-      />
-      <BaseButton
-        v-if="route.name === TABS.view && viewMode === 'date'"
-        color="primary"
-        :icon="$globals.icons.tags"
-        :text="$t('meal-plan.custom-plan-move-all')"
-        :disabled="!hasMeals"
-        class="mr-4"
-        @click="addToPlanDialog = true"
-      />
-      <BaseButton
-        v-if="viewMode === 'named-plan'"
-        color="primary"
-        :icon="$globals.icons.calendar"
-        :text="$t('meal-plan.custom-plan-apply-btn')"
-        :disabled="!selectedPlanId || planEntries.length === 0"
-        class="ml-auto mr-4"
-        @click="applyDialog = true"
-      />
-      <ButtonLink
-        :icon="$globals.icons.calendar"
-        :to="`/household/mealplan/settings`"
-        :text="$t('general.settings')"
-      />
-    </div>
+    <v-row align="center" class="mb-2">
+      <v-col cols="12" sm="auto">
+        <v-tabs>
+          <v-tab :to="{ name: TABS.view, query: route.query }">
+            {{ $t('meal-plan.meal-planner') }}
+          </v-tab>
+          <v-tab :to="{ name: TABS.edit, query: route.query }">
+            {{ $t('general.edit') }}
+          </v-tab>
+        </v-tabs>
+      </v-col>
+      <v-col cols="12" sm="auto" class="d-flex align-center ga-2 flex-wrap ms-sm-auto">
+        <template v-if="route.name === TABS.view && viewMode === 'date'">
+          <v-btn
+            color="info"
+            :disabled="!hasRecipes"
+            :loading="state.addAllLoading"
+            @click="addAllToList"
+          >
+            <v-icon :start="mdAndUp">
+              {{ $globals.icons.cartCheck }}
+            </v-icon>
+            <span>{{ $t('meal-plan.add-all-to-list') }}</span>
+          </v-btn>
+          <v-tooltip :text="$t('meal-plan.custom-plan-move-all')">
+            <template #activator="{ props: tooltipProps }">
+              <v-btn
+                v-bind="tooltipProps"
+                color="primary"
+                :disabled="!hasMeals"
+                @click="addToPlanDialog = true"
+              >
+                <v-icon :start="mdAndUp">
+                  {{ $globals.icons.tags }}
+                </v-icon>
+                <span v-if="mdAndUp">{{ $t('meal-plan.custom-plan-move-all') }}</span>
+              </v-btn>
+            </template>
+          </v-tooltip>
+        </template>
+        <v-tooltip v-if="viewMode === 'named-plan'" :text="$t('meal-plan.custom-plan-apply-btn')">
+          <template #activator="{ props: tooltipProps }">
+            <v-btn
+              v-bind="tooltipProps"
+              color="primary"
+              :disabled="!selectedPlanId || planEntries.length === 0"
+              @click="applyDialog = true"
+            >
+              <v-icon :start="mdAndUp">
+                {{ $globals.icons.calendar }}
+              </v-icon>
+              <span v-if="mdAndUp">{{ $t('meal-plan.custom-plan-apply-btn') }}</span>
+            </v-btn>
+          </template>
+        </v-tooltip>
+        <v-tooltip :text="$t('general.settings')">
+          <template #activator="{ props: tooltipProps }">
+            <v-btn
+              v-bind="tooltipProps"
+              :to="`/household/mealplan/settings`"
+            >
+              <v-icon :start="mdAndUp">
+                {{ $globals.icons.calendar }}
+              </v-icon>
+              <span v-if="mdAndUp">{{ $t('general.settings') }}</span>
+            </v-btn>
+          </template>
+        </v-tooltip>
+      </v-col>
+    </v-row>
 
     <div>
       <NuxtPage
@@ -328,6 +360,8 @@ const TABS = {
   view: "household-mealplan-planner-view",
   edit: "household-mealplan-planner-edit",
 };
+
+const { mdAndUp } = useDisplay();
 
 const route = useRoute();
 const router = useRouter();
