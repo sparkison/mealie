@@ -3,7 +3,7 @@
     <RecipeDialogAddToShoppingList
       v-if="shoppingLists"
       v-model="state.shoppingListDialog"
-      :recipes="weekRecipesWithScales"
+      :recipes="viewMode === 'named-plan' ? planEntryRecipesWithScales : weekRecipesWithScales"
       :shopping-lists="shoppingLists"
     />
 
@@ -298,21 +298,34 @@
             </template>
           </v-tooltip>
         </template>
-        <v-tooltip v-if="viewMode === 'named-plan'" :text="$t('meal-plan.custom-plan-apply-btn')">
-          <template #activator="{ props: tooltipProps }">
-            <v-btn
-              v-bind="tooltipProps"
-              color="primary"
-              :disabled="!selectedPlanId || planEntries.length === 0"
-              @click="applyDialog = true"
-            >
-              <v-icon :start="mdAndUp">
-                {{ $globals.icons.calendar }}
-              </v-icon>
-              <span v-if="mdAndUp">{{ $t('meal-plan.custom-plan-apply-btn') }}</span>
-            </v-btn>
-          </template>
-        </v-tooltip>
+        <template v-if="viewMode === 'named-plan'">
+          <v-btn
+            color="info"
+            :disabled="!hasPlanEntryRecipes"
+            :loading="state.addAllLoading"
+            @click="addAllPlanEntriesToList"
+          >
+            <v-icon :start="mdAndUp">
+              {{ $globals.icons.cartCheck }}
+            </v-icon>
+            <span>{{ $t('meal-plan.add-all-to-list') }}</span>
+          </v-btn>
+          <v-tooltip :text="$t('meal-plan.custom-plan-apply-btn')">
+            <template #activator="{ props: tooltipProps }">
+              <v-btn
+                v-bind="tooltipProps"
+                color="primary"
+                :disabled="!selectedPlanId || planEntries.length === 0"
+                @click="applyDialog = true"
+              >
+                <v-icon :start="mdAndUp">
+                  {{ $globals.icons.calendar }}
+                </v-icon>
+                <span v-if="mdAndUp">{{ $t('meal-plan.custom-plan-apply-btn') }}</span>
+              </v-btn>
+            </template>
+          </v-tooltip>
+        </template>
         <v-tooltip :text="$t('general.settings')">
           <template #activator="{ props: tooltipProps }">
             <v-btn
@@ -538,6 +551,30 @@ const applyDialog = ref(false);
 const applyStartDateObj = ref<Date>(new Date());
 
 const { plans, planEntries, fetchAll, fetchEntries, createOne: createPlan, deleteOne: deletePlan, applyToWeek, updateEntryScale } = useNamedMealPlans();
+
+const hasPlanEntryRecipes = computed(() => {
+  return planEntries.value.some(entry => entry.recipe);
+});
+
+const planEntryRecipesWithScales = computed(() => {
+  const allRecipes: any[] = [];
+  for (const entry of planEntries.value) {
+    if (entry.recipe) {
+      allRecipes.push({
+        scale: entry.recipeScale ?? 1,
+        ...entry.recipe,
+      });
+    }
+  }
+  return allRecipes;
+});
+
+async function addAllPlanEntriesToList() {
+  state.value.addAllLoading = true;
+  await getShoppingLists();
+  state.value.shoppingListDialog = true;
+  state.value.addAllLoading = false;
+}
 
 // Sync viewMode + selectedPlanId into URL
 watch([viewMode, selectedPlanId], ([mode, planId]) => {

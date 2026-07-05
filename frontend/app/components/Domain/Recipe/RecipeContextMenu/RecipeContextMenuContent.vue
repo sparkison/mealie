@@ -42,7 +42,7 @@
     :icon="$globals.icons.calendar"
     can-submit
     :submit-text="$t('general.add')"
-    :submit-disabled="mealplannerAddMode === 'named-plan' && !mealplannerPlanId"
+    :submit-disabled="mealplannerAddMode === 'named-plan' && !mealplannerPlanId && !newMealplannerPlanName.trim()"
     @submit="onAddToPlan()"
   >
     <v-card-text>
@@ -85,6 +85,19 @@
           item-value="id"
           :label="$t('meal-plan.custom-plan')"
           :loading="namedPlansLoading"
+          :disabled="!!newMealplannerPlanName.trim()"
+          clearable
+          class="mb-2"
+        />
+        <div class="d-flex align-center my-2">
+          <v-divider />
+          <span class="mx-2 text-caption text-medium-emphasis">{{ $t('general.or') }}</span>
+          <v-divider />
+        </div>
+        <v-text-field
+          v-model="newMealplannerPlanName"
+          :label="$t('meal-plan.custom-plan-move-new-label')"
+          :disabled="!!mealplannerPlanId"
           class="mb-2"
         />
       </template>
@@ -228,6 +241,7 @@ const newMealdate = ref(new Date());
 const newMealType = ref<PlanEntryType>("dinner");
 const mealplannerAddMode = ref<"date" | "named-plan">("date");
 const mealplannerPlanId = ref<string | null>(null);
+const newMealplannerPlanName = ref("");
 const namedPlans = ref<ReadNamedMealPlan[]>([]);
 const namedPlansLoading = ref(false);
 
@@ -423,8 +437,22 @@ watch(mealplannerAddMode, (mode) => {
 });
 
 async function onAddToPlan() {
-  if (mealplannerAddMode.value === "named-plan" && mealplannerPlanId.value) {
-    const { data } = await api.namedMealPlans.addEntry(mealplannerPlanId.value, {
+  if (mealplannerAddMode.value === "named-plan") {
+    let targetPlanId = mealplannerPlanId.value;
+
+    if (newMealplannerPlanName.value.trim()) {
+      const { data: newPlan } = await api.namedMealPlans.createOne({ name: newMealplannerPlanName.value.trim() });
+      if (!newPlan) {
+        alert.error(i18n.t("recipe.failed-to-add-recipe-to-mealplan") as string);
+        return;
+      }
+      targetPlanId = newPlan.id;
+      await fetchNamedPlans();
+    }
+
+    if (!targetPlanId) return;
+
+    const { data } = await api.namedMealPlans.addEntry(targetPlanId, {
       recipeId: props.recipeId,
       entryType: newMealType.value,
       title: "",
@@ -433,6 +461,8 @@ async function onAddToPlan() {
     });
     if (data) {
       alert.success(i18n.t("recipe.recipe-added-to-mealplan") as string);
+      mealplannerPlanId.value = targetPlanId;
+      newMealplannerPlanName.value = "";
     }
     else {
       alert.error(i18n.t("recipe.failed-to-add-recipe-to-mealplan") as string);
