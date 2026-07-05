@@ -1,7 +1,7 @@
 """more aggresive normalization
 
 Revision ID: c7427796f7b6
-Revises: 4395a04f7784
+Revises: e2f3a4b5c6d7
 Create Date: 2026-05-10 18:44:53.159775
 
 """
@@ -14,7 +14,7 @@ from mealie.db.models._model_base import SqlAlchemyBase
 
 # revision identifiers, used by Alembic.
 revision = "c7427796f7b6"
-down_revision: str | None = "4395a04f7784"
+down_revision: str | None = "e2f3a4b5c6d7"
 branch_labels: str | tuple[str, ...] | None = None
 depends_on: str | tuple[str, ...] | None = None
 
