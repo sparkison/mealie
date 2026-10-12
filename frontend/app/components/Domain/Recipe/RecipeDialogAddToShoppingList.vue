@@ -3,6 +3,7 @@
     <BaseDialog
       v-if="shoppingListDialog && ready"
       v-model="dialog"
+      bottom-sheet
       :title="$t('recipe.add-to-list')"
       :icon="$globals.icons.cartCheck"
     >
@@ -215,12 +216,12 @@
         <BaseButtonGroup
           :buttons="[
             {
-              icon: $globals.icons.checkboxBlankOutline,
+              icon: $globals.icons.checkboxMultipleBlankOutline,
               text: $t('shopping-list.uncheck-all-items'),
               event: 'uncheck',
             },
             {
-              icon: $globals.icons.checkboxOutline,
+              icon: $globals.icons.checkboxMultipleMarkedOutline,
               text: $t('shopping-list.check-all-items'),
               event: 'check',
             },
@@ -235,12 +236,12 @@
 
 <script setup lang="ts">
 import { toRefs } from "@vueuse/core";
-import RecipeIngredientListItem from "./RecipeIngredientListItem.vue";
 import { useUserApi } from "~/composables/api";
 import { alert } from "~/composables/use-toast";
 import { useShoppingListPreferences } from "~/composables/use-users/preferences";
 import type { RecipeIngredient, ShoppingListAddRecipeParamsBulk, ShoppingListSummary } from "~/lib/api/types/household";
 import type { Recipe } from "~/lib/api/types/recipe";
+import RecipeIngredientListItem from "./RecipeIngredientListItem.vue";
 
 export interface RecipeWithScale extends Recipe {
   scale: number;
@@ -266,12 +267,13 @@ export interface ShoppingListRecipeIngredientSection {
 
 interface Props {
   recipes?: RecipeWithScale[];
-  shoppingLists?: ShoppingListSummary[];
 }
 const props = withDefaults(defineProps<Props>(), {
   recipes: undefined,
-  shoppingLists: () => [],
 });
+
+// Two-way so lists created from this dialog stay in the parent's list on the next open
+const shoppingLists = defineModel<ShoppingListSummary[]>("shoppingLists", { default: () => [] });
 
 const dialog = defineModel<boolean>({ default: false });
 
@@ -279,6 +281,7 @@ const i18n = useI18n();
 const auth = useMealieAuth();
 const api = useUserApi();
 const preferences = useShoppingListPreferences();
+const router = useRouter();
 const ready = ref(false);
 
 // Capture values at initialization to avoid reactive updates
@@ -299,7 +302,7 @@ const selectedShoppingList = ref<ShoppingListSummary | null>(null);
 watch([dialog, () => preferences.value.viewAllLists], () => {
   if (dialog.value) {
     currentHouseholdSlug.value = auth.user.value?.householdSlug || "";
-    filteredShoppingLists.value = props.shoppingLists.filter(
+    filteredShoppingLists.value = shoppingLists.value.filter(
       list => preferences.value.viewAllLists || list.userId === auth.user.value?.id,
     );
 
@@ -353,12 +356,12 @@ async function consolidateRecipesIntoSections(recipes: RecipeWithScale[]) {
   const recipeSectionMap = new Map<string, ShoppingListRecipeIngredientSection>();
 
   function addSubRecipeToMap(ing: RecipeIngredient, parentQuantity: number, parentScale: number, parentRecipe: Recipe) {
-    const ref = ing.referencedRecipe!;
-    const key = ref.id || ref.slug || "";
+    const subRecipe = ing.referencedRecipe!;
+    const key = subRecipe.id || subRecipe.slug || "";
     const ownIngs: ShoppingListIngredient[] = [];
     const subRefIngs: RecipeIngredient[] = [];
 
-    for (const subIng of ref.recipeIngredient ?? []) {
+    for (const subIng of subRecipe.recipeIngredient ?? []) {
       if (subIng.referencedRecipe) {
         subRefIngs.push(subIng);
       }
@@ -372,14 +375,14 @@ async function consolidateRecipesIntoSections(recipes: RecipeWithScale[]) {
     }
 
     recipeSectionMap.set(key, {
-      recipeId: ref.id || "",
-      recipeName: ref.name || "",
+      recipeId: subRecipe.id || "",
+      recipeName: subRecipe.name || "",
       recipeScale: parentQuantity * parentScale,
       ingredientSections: buildIngredientSections(ownIngs),
       parentRecipe,
     });
 
-    subRefIngs.forEach(subIng => addSubRecipeToMap(subIng, (ing.quantity || 1) * (subIng.quantity || 1), parentScale, ref));
+    subRefIngs.forEach(subIng => addSubRecipeToMap(subIng, (ing.quantity || 1) * (subIng.quantity || 1), parentScale, subRecipe));
   }
 
   for (const recipe of recipes) {
@@ -459,6 +462,7 @@ async function createAndOpenList() {
     return;
   }
 
+  shoppingLists.value = [...shoppingLists.value, data as ShoppingListSummary];
   filteredShoppingLists.value.push(data as ShoppingListSummary);
   newListForm.show = false;
   newListForm.name = "";
@@ -531,10 +535,17 @@ async function addRecipesToList() {
       },
     );
   });
-
-  const { error } = await api.shopping.lists.addRecipes(selectedShoppingList.value.id, recipeData);
+  const listId = selectedShoppingList.value.id;
+  const { error } = await api.shopping.lists.addRecipes(listId, recipeData);
   // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-  error ? alert.error(i18n.t("recipe.failed-to-add-recipes-to-list")) : alert.success(i18n.t("recipe.successfully-added-to-list"));
+  error
+    ? alert.error(i18n.t("recipe.failed-to-add-recipes-to-list"))
+    : alert.success(i18n.t("recipe.successfully-added-to-list"), null, {
+        action: {
+          message: i18n.t("general.view"),
+          onClick: () => router.push(`/shopping-lists/${listId ?? ""}`),
+        },
+      });
 
   state.shoppingListDialog = false;
   state.shoppingListIngredientDialog = false;
