@@ -1,8 +1,8 @@
 <template>
   <RecipeDialogAddToShoppingList
     v-model="shoppingListDialog"
+    v-model:shopping-lists="shoppingLists"
     :recipes="recipesWithScales"
-    :shopping-lists="shoppingLists"
   />
   <GroupMealPlanEntryDialog
     v-model="dialog.open"

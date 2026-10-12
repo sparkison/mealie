@@ -136,8 +136,9 @@ function recalculateScale(newYield: number) {
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
 watch(localScale, (newScale) => {
-  if (newScale === (props.meal.recipeScale ?? 1)) return;
+  // Cancel any pending save first, so changing back to the stored scale doesn't save the in-between value
   if (saveTimer) clearTimeout(saveTimer);
+  if (newScale === (props.meal.recipeScale ?? 1)) return;
   saveTimer = setTimeout(() => {
     props.actions.updateOne({ ...props.meal, recipeScale: newScale });
   }, 400);

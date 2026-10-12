@@ -41,8 +41,8 @@
   <RecipeDialogAddToShoppingList
     v-if="shoppingLists && recipeRefWithScale"
     v-model="shoppingListDialog"
+    v-model:shopping-lists="shoppingLists"
     :recipes="[recipeRefWithScale]"
-    :shopping-lists="shoppingLists"
   />
 
   <v-list density="compact">

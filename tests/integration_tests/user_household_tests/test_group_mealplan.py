@@ -165,6 +165,50 @@ def test_crud_mealplan(api_client: TestClient, unique_user: TestUser):
     assert response.status_code == 404
 
 
+def create_recipe_mealplan(api_client: TestClient, unique_user: TestUser, **extra) -> dict:
+    recipe = create_recipe(unique_user)
+    new_plan = {
+        "date": datetime.now(UTC).date().strftime("%Y-%m-%d"),
+        "entryType": "dinner",
+        "recipeId": str(recipe.id),
+        **extra,
+    }
+
+    response = api_client.post(api_routes.households_mealplans, json=new_plan, headers=unique_user.token)
+    assert response.status_code == 201
+    return response.json()
+
+
+def test_mealplan_recipe_scale_defaults_to_one(api_client: TestClient, unique_user: TestUser):
+    plan = create_recipe_mealplan(api_client, unique_user)
+    assert plan["recipeScale"] == 1
+
+    response = api_client.get(api_routes.households_mealplans_item_id(plan["id"]), headers=unique_user.token)
+    assert response.status_code == 200
+    assert response.json()["recipeScale"] == 1
+
+
+def test_create_mealplan_with_recipe_scale(api_client: TestClient, unique_user: TestUser):
+    plan = create_recipe_mealplan(api_client, unique_user, recipeScale=2.5)
+    assert plan["recipeScale"] == 2.5
+
+    response = api_client.get(api_routes.households_mealplans_item_id(plan["id"]), headers=unique_user.token)
+    assert response.status_code == 200
+    assert response.json()["recipeScale"] == 2.5
+
+
+def test_update_mealplan_recipe_scale(api_client: TestClient, unique_user: TestUser):
+    plan = create_recipe_mealplan(api_client, unique_user)
+
+    plan["recipeScale"] = 0.5
+    response = api_client.put(api_routes.households_mealplans_item_id(plan["id"]), headers=unique_user.token, json=plan)
+    assert response.status_code == 200
+    assert response.json()["recipeScale"] == 0.5
+
+    response = api_client.get(api_routes.households_mealplans_item_id(plan["id"]), headers=unique_user.token)
+    assert response.json()["recipeScale"] == 0.5
+
+
 def test_get_all_mealplans(api_client: TestClient, unique_user: TestUser):
     for _ in range(3):
         new_plan = CreatePlanEntry(

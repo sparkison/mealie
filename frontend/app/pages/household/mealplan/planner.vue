@@ -3,8 +3,8 @@
     <RecipeDialogAddToShoppingList
       v-if="shoppingLists"
       v-model="shoppingListDialog"
+      v-model:shopping-lists="shoppingLists"
       :recipes="weekRecipesWithScales"
-      :shopping-lists="shoppingLists"
     />
     <div :class="`d-flex ga-2 ${$vuetify.display.xs ? 'justify-center' : 'justify-start'}`">
       <v-btn :icon="$globals.icons.chevronLeft" flat rounded="md" density="comfortable" @click="() => changeWeek(-1)" />

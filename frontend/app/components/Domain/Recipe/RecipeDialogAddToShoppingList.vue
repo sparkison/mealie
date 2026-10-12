@@ -267,12 +267,13 @@ export interface ShoppingListRecipeIngredientSection {
 
 interface Props {
   recipes?: RecipeWithScale[];
-  shoppingLists?: ShoppingListSummary[];
 }
 const props = withDefaults(defineProps<Props>(), {
   recipes: undefined,
-  shoppingLists: () => [],
 });
+
+// Two-way so lists created from this dialog stay in the parent's list on the next open
+const shoppingLists = defineModel<ShoppingListSummary[]>("shoppingLists", { default: () => [] });
 
 const dialog = defineModel<boolean>({ default: false });
 
@@ -301,7 +302,7 @@ const selectedShoppingList = ref<ShoppingListSummary | null>(null);
 watch([dialog, () => preferences.value.viewAllLists], () => {
   if (dialog.value) {
     currentHouseholdSlug.value = auth.user.value?.householdSlug || "";
-    filteredShoppingLists.value = props.shoppingLists.filter(
+    filteredShoppingLists.value = shoppingLists.value.filter(
       list => preferences.value.viewAllLists || list.userId === auth.user.value?.id,
     );
 
@@ -461,6 +462,7 @@ async function createAndOpenList() {
     return;
   }
 
+  shoppingLists.value = [...shoppingLists.value, data as ShoppingListSummary];
   filteredShoppingLists.value.push(data as ShoppingListSummary);
   newListForm.show = false;
   newListForm.name = "";
