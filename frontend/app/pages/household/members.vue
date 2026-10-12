@@ -16,6 +16,9 @@
         <template #manage>
           <b>{{ $t('group.manage') }}</b>
         </template>
+        <template #organize>
+          <b>{{ $t('settings.organize') }}</b>
+        </template>
         <template #invite>
           <b>{{ $t('group.invite') }}</b>
         </template>
@@ -119,6 +122,10 @@
 import { useUserApi } from "~/composables/api";
 import type { UserOut } from "~/lib/api/types/user";
 import UserAvatar from "~/components/Domain/User/UserAvatar.vue";
+
+definePageMeta({
+  middleware: ["auth"],
+});
 
 const api = useUserApi();
 const i18n = useI18n();
