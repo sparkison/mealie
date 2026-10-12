@@ -2,9 +2,9 @@
   <v-container>
     <RecipeDialogAddToShoppingList
       v-if="shoppingLists"
-      v-model="state.shoppingListDialog"
+      v-model="shoppingListDialog"
+      v-model:shopping-lists="shoppingLists"
       :recipes="viewMode === 'named-plan' ? planEntryRecipesWithScales : weekRecipesWithScales"
-      :shopping-lists="shoppingLists"
     />
 
     <!-- New Custom Plan dialog -->
@@ -118,20 +118,14 @@
         <p class="mb-2 text-body-2">
           {{ $t('meal-plan.custom-plan-apply-hint') }}
         </p>
-        <v-date-picker
-          v-model="applyStartDateObj"
-          hide-header
-          show-adjacent-months
-          color="primary"
-          class="mx-auto"
-        />
+        <MealPlanDatePicker v-model="applyStartDateObj" />
       </v-card-text>
     </BaseDialog>
 
-    <!-- Header row: date picker (date mode) / plan controls (custom plan mode) + mode toggle -->
-    <v-row align="center" class="mb-1">
-      <!-- Date mode: date range picker -->
-      <v-col v-if="viewMode === 'date'" cols="12" sm="auto">
+    <div class="d-flex flex-wrap align-center ga-2 mb-2">
+      <!-- Date mode: week navigation -->
+      <div v-if="viewMode === 'date'" :class="`d-flex ga-2 ${$vuetify.display.xs ? 'justify-center w-100 w-sm-auto' : 'justify-start'}`">
+        <v-btn :icon="$globals.icons.chevronLeft" flat rounded="md" density="comfortable" @click="() => changeWeek(-1)" />
         <v-menu
           v-model="state.picker"
           :close-on-content-click="false"
@@ -142,8 +136,8 @@
           <template #activator="{ props }">
             <v-btn
               color="primary"
+              class="mb-2"
               v-bind="props"
-              class="w-100 w-sm-auto"
             >
               <v-icon start>
                 {{ $globals.icons.calendar }}
@@ -153,7 +147,7 @@
           </template>
 
           <v-card>
-            <v-date-picker
+            <MealPlanDatePicker
               v-model="state.range"
               hide-header
               :multiple="'range'"
@@ -165,7 +159,6 @@
               <v-number-input
                 v-model="numberOfDaysPast"
                 :min="0"
-                control-variant="stacked"
                 inset
                 :label="$t('meal-plan.numberOfDaysPast-label')"
                 :hint="$t('meal-plan.numberOfDaysPast-hint')"
@@ -177,7 +170,6 @@
               <v-number-input
                 v-model="numberOfDays"
                 :min="1"
-                control-variant="stacked"
                 inset
                 :label="$t('meal-plan.numberOfDays-label')"
                 :hint="$t('meal-plan.numberOfDays-hint')"
@@ -186,10 +178,9 @@
             </v-card-text>
           </v-card>
         </v-menu>
-      </v-col>
-
-      <!-- Custom plan mode: plan selector + actions -->
-      <v-col v-if="viewMode === 'named-plan'" cols="12" sm="auto" class="d-flex align-center ga-2">
+        <v-btn :icon="$globals.icons.chevronRight" flat rounded="md" density="comfortable" @click="() => changeWeek(1)" />
+      </div>
+      <div v-else class="d-flex align-center ga-2 flex-grow-1 flex-sm-grow-0 mb-2">
         <v-select
           v-model="selectedPlanId"
           :items="plans"
@@ -231,117 +222,57 @@
         >
           <v-icon>{{ $globals.icons.delete }}</v-icon>
         </v-btn>
-      </v-col>
+      </div>
 
       <!-- Mode toggle: full-width on mobile, pushed right on larger screens -->
-      <v-col cols="12" sm="auto" class="ms-sm-auto">
-        <v-btn-toggle
-          v-model="viewMode"
-          mandatory
-          density="compact"
-          class="w-100 w-sm-auto"
-        >
-          <v-btn value="date" size="small" class="flex-grow-1 flex-sm-grow-0">
-            <v-icon start>
-              {{ $globals.icons.calendar }}
-            </v-icon>
-            {{ $t('general.date') }}
-          </v-btn>
-          <v-btn value="named-plan" size="small" class="flex-grow-1 flex-sm-grow-0">
-            <v-icon start>
-              {{ $globals.icons.tags }}
-            </v-icon>
-            {{ $t('meal-plan.custom-plans') }}
-          </v-btn>
-        </v-btn-toggle>
-      </v-col>
-    </v-row>
-
-    <!-- Tabs + action buttons -->
-    <v-row align="center" class="mb-2">
-      <v-col cols="12" sm="auto">
-        <v-tabs>
-          <v-tab :to="{ name: TABS.view, query: route.query }">
-            {{ $t('meal-plan.meal-planner') }}
-          </v-tab>
-          <v-tab :to="{ name: TABS.edit, query: route.query }">
-            {{ $t('general.edit') }}
-          </v-tab>
-        </v-tabs>
-      </v-col>
-      <v-col cols="12" sm="auto" class="d-flex align-center ga-2 flex-wrap ms-sm-auto">
-        <template v-if="route.name === TABS.view && viewMode === 'date'">
-          <v-btn
-            color="info"
-            :disabled="!hasRecipes"
-            :loading="state.addAllLoading"
-            @click="addAllToList"
-          >
-            <v-icon :start="mdAndUp">
-              {{ $globals.icons.cartCheck }}
-            </v-icon>
-            <span>{{ $t('meal-plan.add-all-to-list') }}</span>
-          </v-btn>
-          <v-tooltip :text="$t('meal-plan.custom-plan-move-all')">
-            <template #activator="{ props: tooltipProps }">
-              <v-btn
-                v-bind="tooltipProps"
-                color="primary"
-                :disabled="!hasMeals"
-                @click="addToPlanDialog = true"
-              >
-                <v-icon :start="mdAndUp">
-                  {{ $globals.icons.tags }}
-                </v-icon>
-                <span v-if="mdAndUp">{{ $t('meal-plan.custom-plan-move-all') }}</span>
-              </v-btn>
-            </template>
-          </v-tooltip>
-        </template>
-        <template v-if="viewMode === 'named-plan'">
-          <v-btn
-            color="info"
-            :disabled="!hasPlanEntryRecipes"
-            :loading="state.addAllLoading"
-            @click="addAllPlanEntriesToList"
-          >
-            <v-icon :start="mdAndUp">
-              {{ $globals.icons.cartCheck }}
-            </v-icon>
-            <span>{{ $t('meal-plan.add-all-to-list') }}</span>
-          </v-btn>
-          <v-tooltip :text="$t('meal-plan.custom-plan-apply-btn')">
-            <template #activator="{ props: tooltipProps }">
-              <v-btn
-                v-bind="tooltipProps"
-                color="primary"
-                :disabled="!selectedPlanId || planEntries.length === 0"
-                @click="applyDialog = true"
-              >
-                <v-icon :start="mdAndUp">
-                  {{ $globals.icons.calendar }}
-                </v-icon>
-                <span v-if="mdAndUp">{{ $t('meal-plan.custom-plan-apply-btn') }}</span>
-              </v-btn>
-            </template>
-          </v-tooltip>
-        </template>
-        <v-tooltip :text="$t('general.settings')">
-          <template #activator="{ props: tooltipProps }">
-            <v-btn
-              v-bind="tooltipProps"
-              :to="`/household/mealplan/settings`"
-            >
-              <v-icon :start="mdAndUp">
-                {{ $globals.icons.calendar }}
-              </v-icon>
-              <span v-if="mdAndUp">{{ $t('general.settings') }}</span>
-            </v-btn>
-          </template>
-        </v-tooltip>
-      </v-col>
-    </v-row>
-
+      <v-btn-toggle
+        v-model="viewMode"
+        mandatory
+        density="compact"
+        class="w-100 w-sm-auto ms-sm-auto mb-2"
+      >
+        <v-btn value="date" size="small" class="flex-grow-1 flex-sm-grow-0">
+          <v-icon start>
+            {{ $globals.icons.calendar }}
+          </v-icon>
+          {{ $t('general.date') }}
+        </v-btn>
+        <v-btn value="named-plan" size="small" class="flex-grow-1 flex-sm-grow-0">
+          <v-icon start>
+            {{ $globals.icons.tags }}
+          </v-icon>
+          {{ $t('meal-plan.custom-plans') }}
+        </v-btn>
+      </v-btn-toggle>
+    </div>
+    <div class="d-flex justify-end">
+      <BaseButtonGroup
+        class="d-flex"
+        :buttons="[
+          edit ? {
+            icon: $globals.icons.calendar,
+            text: $t('general.view'),
+            event: 'view',
+          } : {
+            icon: $globals.icons.edit,
+            text: $t('general.edit'),
+            event: 'edit',
+          },
+          {
+            icon: $globals.icons.dotsVertical,
+            text: '',
+            event: 'three-dot',
+            children: menuItems,
+          },
+        ]"
+        @add-to-list="addAllToList"
+        @move-to-plan="addToPlanDialog = true"
+        @apply-plan="applyDialog = true"
+        @edit="router.push({ name: TABS.edit, query: route.query })"
+        @view="router.push({ name: TABS.view, query: route.query })"
+        @settings="router.push('/household/mealplan/settings')"
+      />
+    </div>
     <div>
       <NuxtPage
         :mealplans="viewMode === 'date' ? mealsByDate : []"
@@ -359,31 +290,43 @@
 </template>
 
 <script setup lang="ts">
-import { isSameDay, addDays, parseISO, format, isValid } from "date-fns";
+import { addDays, differenceInCalendarDays, format, isSameDay, isValid, parseISO } from "date-fns";
 import RecipeDialogAddToShoppingList from "~/components/Domain/Recipe/RecipeDialogAddToShoppingList.vue";
-import { useHouseholdSelf } from "~/composables/use-households";
+import { useAddToShoppingListDialog } from "~/composables/shopping-list-page/use-add-to-shopping-list-dialog";
 import { useMealplans } from "~/composables/use-group-mealplan";
+import { useHouseholdSelf } from "~/composables/use-households";
 import { useNamedMealPlans } from "~/composables/use-named-meal-plans";
 import { useUserMealPlanPreferences } from "~/composables/use-users/preferences";
-import type { ShoppingListSummary } from "~/lib/api/types/household";
-import type { CreateNamedPlanEntry } from "~/lib/api/types/meal-plan";
 import { useUserApi } from "~/composables/api";
+import type { CreateNamedPlanEntry } from "~/lib/api/types/meal-plan";
+
+definePageMeta({
+  middleware: ["auth"],
+});
 
 const TABS = {
   view: "household-mealplan-planner-view",
   edit: "household-mealplan-planner-edit",
 };
 
-const { mdAndUp } = useDisplay();
-
 const route = useRoute();
 const router = useRouter();
 const i18n = useI18n();
 const api = useUserApi();
-const { household } = useHouseholdSelf();
+const { $globals } = useNuxtApp();
+const { household, actions: householdActions } = useHouseholdSelf();
+const { shoppingLists, open: shoppingListDialog, addAllToList } = useAddToShoppingListDialog();
 
 useSeoMeta({
   title: i18n.t("meal-plan.dinner-this-week"),
+});
+
+// useHouseholdSelf() caches data in a module-level singleton for the lifetime of the tab,
+// so revisiting this page via client-side navigation can otherwise use a stale
+// firstDayOfWeek value if household preferences were changed elsewhere (e.g. Admin
+// Households panel) in the same session. Force a revalidation whenever this page is entered.
+onMounted(() => {
+  householdActions.refresh();
 });
 
 const mealPlanPreferences = useUserMealPlanPreferences();
@@ -404,6 +347,10 @@ if (route.path === "/household/mealplan/planner") {
   });
 }
 
+const edit = computed(() => {
+  return route.path.startsWith("/household/mealplan/planner/edit");
+});
+
 function safeParseISO(date: string, fallback: Date | undefined = undefined) {
   try {
     const parsed = parseISO(date);
@@ -423,15 +370,20 @@ const state = ref({
   start: initialStartDate,
   picker: false,
   end: initialEndDate,
-  shoppingListDialog: false,
-  addAllLoading: false,
 });
-
-const shoppingLists = ref<ShoppingListSummary[]>();
 
 const firstDayOfWeek = computed(() => {
   return household.value?.preferences?.firstDayOfWeek || 0;
 });
+
+function changeWeek(step: number) {
+  const { start, end } = weekRange.value;
+  const stepSize = differenceInCalendarDays(end, start) + 1;
+  state.value.range = [
+    addDays(start, step * stepSize),
+    addDays(end, step * stepSize),
+  ];
+}
 
 const weekRange = computed(() => {
   const sorted = [...state.value.range].sort((a, b) => a.getTime() - b.getTime());
@@ -450,6 +402,7 @@ const weekRange = computed(() => {
 
 // Update query parameters when date range changes
 watch(weekRange, (newRange) => {
+  // Keep current route name and params, just update the query
   router.replace({
     name: route.name || TABS.view,
     params: route.params,
@@ -472,6 +425,8 @@ function filterMealByDate(date: Date) {
 }
 
 function adjustForToday(days: number) {
+  // e.g. If the user wants 7 days, we subtract one to do "today + 6"
+  // e.g. If the user wants 2 days in the past, we keep it the same to do "today - 2"
   return days > 0 ? days - 1 : days;
 }
 
@@ -479,6 +434,7 @@ const days = computed(() => {
   const numDays
     = Math.floor((weekRange.value.end.getTime() - weekRange.value.start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
+  // Calculate absolute value
   if (numDays < 0) return [];
 
   return Array.from(Array(numDays).keys()).map(
@@ -500,38 +456,16 @@ const hasRecipes = computed(() => {
   return mealsByDate.value.some(day => day.meals.some(meal => meal.recipe));
 });
 
+const weekRecipesWithScales = computed(() => {
+  return mealsByDate.value
+    .flatMap(({ meals }) => meals)
+    .filter(({ recipe }) => recipe)
+    .map(({ recipe, recipeScale }) => ({ ...recipe!, scale: recipeScale ?? 1 }));
+});
+
 const hasMeals = computed(() => {
   return mealsByDate.value.some(day => day.meals.length > 0);
 });
-
-const weekRecipesWithScales = computed(() => {
-  const allRecipes: any[] = [];
-  for (const day of mealsByDate.value) {
-    for (const meal of day.meals) {
-      if (meal.recipe) {
-        allRecipes.push({
-          scale: meal.recipeScale ?? 1,
-          ...meal.recipe,
-        });
-      }
-    }
-  }
-  return allRecipes;
-});
-
-async function getShoppingLists() {
-  const { data } = await api.shopping.lists.getAll(1, -1, { orderBy: "name", orderDirection: "asc" });
-  if (data) {
-    shoppingLists.value = data.items as ShoppingListSummary[] ?? [];
-  }
-}
-
-async function addAllToList() {
-  state.value.addAllLoading = true;
-  await getShoppingLists();
-  state.value.shoppingListDialog = true;
-  state.value.addAllLoading = false;
-}
 
 // ================================================================
 // Named plan mode
@@ -557,24 +491,52 @@ const hasPlanEntryRecipes = computed(() => {
 });
 
 const planEntryRecipesWithScales = computed(() => {
-  const allRecipes: any[] = [];
-  for (const entry of planEntries.value) {
-    if (entry.recipe) {
-      allRecipes.push({
-        scale: entry.recipeScale ?? 1,
-        ...entry.recipe,
-      });
-    }
-  }
-  return allRecipes;
+  return planEntries.value
+    .filter(({ recipe }) => recipe)
+    .map(({ recipe, recipeScale }) => ({ ...recipe!, scale: recipeScale ?? 1 }));
 });
 
-async function addAllPlanEntriesToList() {
-  state.value.addAllLoading = true;
-  await getShoppingLists();
-  state.value.shoppingListDialog = true;
-  state.value.addAllLoading = false;
-}
+const menuItems = computed(() => {
+  const settings = {
+    icon: $globals.icons.cog,
+    text: i18n.t("general.settings"),
+    event: "settings",
+  };
+
+  if (viewMode.value === "named-plan") {
+    return [
+      {
+        icon: $globals.icons.cartCheck,
+        text: i18n.t("meal-plan.add-all-to-list"),
+        event: "add-to-list",
+        disabled: !hasPlanEntryRecipes.value,
+      },
+      {
+        icon: $globals.icons.calendar,
+        text: i18n.t("meal-plan.custom-plan-apply-btn"),
+        event: "apply-plan",
+        disabled: !selectedPlanId.value || planEntries.value.length === 0,
+      },
+      settings,
+    ];
+  }
+
+  return [
+    {
+      icon: $globals.icons.cartCheck,
+      text: i18n.t("meal-plan.add-all-to-list"),
+      event: "add-to-list",
+      disabled: !hasRecipes.value,
+    },
+    {
+      icon: $globals.icons.tags,
+      text: i18n.t("meal-plan.custom-plan-move-all"),
+      event: "move-to-plan",
+      disabled: !hasMeals.value,
+    },
+    settings,
+  ];
+});
 
 // Sync viewMode + selectedPlanId into URL
 watch([viewMode, selectedPlanId], ([mode, planId]) => {
@@ -713,13 +675,3 @@ async function addAllToCustomPlan() {
   await fetchEntries(targetPlanId);
 }
 </script>
-
-<style lang="css">
-.left-color-border {
-  border-left: 5px solid var(--v-primary-base) !important;
-}
-
-.bottom-color-border {
-  border-bottom: 2px solid var(--v-primary-base) !important;
-}
-</style>
