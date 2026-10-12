@@ -56,7 +56,7 @@ import type { PlanEntryType, ReadPlanEntry } from "~/lib/api/types/meal-plan";
 import type { Recipe } from "~/lib/api/types/recipe";
 
 interface Props {
-  recipes?: Recipe[];
+  recipes?: (Recipe & { scale?: number })[];
   day: Date;
   actions: ReturnType<typeof useMealplans>["actions"];
   inlineActions?: boolean;

@@ -37,7 +37,7 @@ export type DaySection = {
 export type Days = {
   date: Date;
   sections: DaySection[];
-  recipes: RecipeSummary[];
+  recipes: (RecipeSummary & { scale?: number })[];
 };
 
 export type MealsByDate = {

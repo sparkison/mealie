@@ -57,6 +57,18 @@
             :return-object="false"
             hide-details
           />
+
+          <v-number-input
+            v-if="isRecipe"
+            v-model="recipeScale"
+            class="mt-4"
+            :min="0.25"
+            :step="0.5"
+            :precision="null"
+            inset
+            hide-details
+            :label="$t('recipe.servings-scale')"
+          />
         </v-col>
 
         <!-- both modes fill the same pane, so the dialog doesn't resize when switching between them -->
@@ -162,6 +174,7 @@ const entryMode = ref<"recipe" | "note">("recipe");
 const selectedDate = ref(new Date());
 const entryType = ref<PlanEntryType>("dinner");
 const recipe = ref<RecipeSummary | null>(null);
+const recipeScale = ref(1);
 const title = ref("");
 const text = ref("");
 const ignoreRules = ref(false);
@@ -183,6 +196,7 @@ function initialize() {
   selectedDate.value = props.entry ? parseEntryDate(props.entry.date) : props.date ?? new Date();
   entryType.value = props.entry?.entryType ?? "dinner";
   recipe.value = props.entry?.recipe ?? null;
+  recipeScale.value = props.entry?.recipeScale ?? 1;
   title.value = props.entry?.title ?? "";
   text.value = props.entry?.text ?? "";
   ignoreRules.value = false;
@@ -196,6 +210,7 @@ function submit() {
     title: isRecipe.value ? "" : title.value,
     text: isRecipe.value ? "" : text.value,
     recipeId: isRecipe.value ? recipe.value?.id : null,
+    recipeScale: isRecipe.value ? recipeScale.value : 1,
   };
 
   if (props.entry) {
