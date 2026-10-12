@@ -1,0 +1,195 @@
+name: Fork Upstream Sync
+
+# Merges upstream mealie-next into sparkison through a PR that only merges once the
+# Fork Dev Build tests pass. Anything that needs a human (merge conflicts, a migration
+# chain the guard script doesn't recognise, failing tests) is reported in a single
+# "upstream-sync" issue, which is closed again by the next successful sync.
+#
+# Requires a FORK_SYNC_TOKEN secret: a fine-grained PAT for this repository with read/write
+# access to Contents, Pull requests, Issues and Workflows. The default GITHUB_TOKEN can't
+# push changes to upstream's workflow files, and its pushes and merges don't trigger the
+# test and image build workflows.
+
+on:
+  schedule:
+    - cron: "17 9 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: fork-upstream-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  BASE_BRANCH: sparkison
+  SYNC_BRANCH: sync/upstream
+  UPSTREAM_REPO: https://github.com/mealie-recipes/mealie.git
+  UPSTREAM_BRANCH: mealie-next
+  ISSUE_LABEL: upstream-sync
+
+jobs:
+  sync:
+    if: github.repository == 'sparkison/mealie'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.BASE_BRANCH }}
+          fetch-depth: 0
+          token: ${{ secrets.FORK_SYNC_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Define issue helpers
+        run: |
+          cat > "$RUNNER_TEMP/report.sh" <<'EOF'
+          # report_problem <title line> <body file>: create or update the single sync issue
+          report_problem() {
+            gh label create "$ISSUE_LABEL" --color D93F0B --description "Upstream sync needs attention" --force >/dev/null
+            local body="$RUNNER_TEMP/issue.md"
+            { echo "$1"; echo; cat "$2"; echo; echo "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"; } > "$body"
+            local issue
+            issue=$(gh issue list --label "$ISSUE_LABEL" --state open --json number --jq '.[0].number')
+            if [ -n "$issue" ]; then
+              gh issue edit "$issue" --body-file "$body"
+            else
+              gh issue create --title "Upstream sync needs attention" --label "$ISSUE_LABEL" --body-file "$body"
+            fi
+          }
+
+          close_problem() {
+            local issue
+            issue=$(gh issue list --label "$ISSUE_LABEL" --state open --json number --jq '.[0].number')
+            if [ -n "$issue" ]; then
+              gh issue close "$issue" --comment "Resolved by $1"
+            fi
+          }
+          EOF
+
+      - name: Fetch upstream
+        id: fetch
+        run: |
+          git remote add upstream "$UPSTREAM_REPO"
+          git fetch --no-tags upstream "$UPSTREAM_BRANCH"
+          sha=$(git rev-parse "upstream/$UPSTREAM_BRANCH")
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "short=${sha:0:9}" >> "$GITHUB_OUTPUT"
+          if git merge-base --is-ancestor "$sha" HEAD; then
+            echo "$BASE_BRANCH already contains upstream $sha"
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Merge upstream
+        id: merge
+        if: steps.fetch.outputs.needed == 'true'
+        env:
+          SHA: ${{ steps.fetch.outputs.sha }}
+          SHORT: ${{ steps.fetch.outputs.short }}
+        run: |
+          source "$RUNNER_TEMP/report.sh"
+          git switch -C "$SYNC_BRANCH"
+
+          if ! git merge --no-commit --no-ff "$SHA"; then
+            {
+              echo "These files conflict when merging upstream \`$SHORT\` into \`$BASE_BRANCH\`:"
+              echo
+              git diff --name-only --diff-filter=U | while read -r file; do echo "- \`$file\`"; done
+              echo
+              echo "Resolve locally, then push to \`$BASE_BRANCH\`:"
+              echo
+              echo '```sh'
+              echo "git switch $BASE_BRANCH && git pull"
+              echo "git fetch upstream && git merge upstream/$UPSTREAM_BRANCH"
+              echo "python3 dev/scripts/fork_migrations.py"
+              echo '```'
+            } > "$RUNNER_TEMP/problem.md"
+            git merge --abort
+            report_problem "## Merge conflicts" "$RUNNER_TEMP/problem.md"
+            exit 1
+          fi
+
+          if ! python3 dev/scripts/fork_migrations.py > "$RUNNER_TEMP/migrations.log" 2>&1; then
+            {
+              echo "The migration guard couldn't put the fork migrations in order after merging upstream \`$SHORT\`:"
+              echo
+              echo '```'
+              cat "$RUNNER_TEMP/migrations.log"
+              echo '```'
+            } > "$RUNNER_TEMP/problem.md"
+            report_problem "## Migration chain needs a hand" "$RUNNER_TEMP/problem.md"
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/migrations.log"
+
+          git add -A
+          git commit -q -m "Merge upstream $UPSTREAM_BRANCH ($SHORT) into $BASE_BRANCH"
+          git push --force origin "$SYNC_BRANCH"
+
+      - name: Open sync PR
+        id: pr
+        if: steps.fetch.outputs.needed == 'true'
+        env:
+          SHORT: ${{ steps.fetch.outputs.short }}
+        run: |
+          {
+            echo "Merges upstream \`$UPSTREAM_BRANCH\` at \`$SHORT\` into \`$BASE_BRANCH\`."
+            echo
+            echo "Migration guard:"
+            echo '```'
+            cat "$RUNNER_TEMP/migrations.log"
+            echo '```'
+            echo
+            echo "Merged automatically by Fork Upstream Sync once the Fork Dev Build checks pass."
+          } > "$RUNNER_TEMP/pr.md"
+
+          pr=$(gh pr list --head "$SYNC_BRANCH" --base "$BASE_BRANCH" --state open --json number --jq '.[0].number')
+          if [ -n "$pr" ]; then
+            gh pr edit "$pr" --title "Sync upstream $UPSTREAM_BRANCH ($SHORT)" --body-file "$RUNNER_TEMP/pr.md"
+          else
+            gh pr create --base "$BASE_BRANCH" --head "$SYNC_BRANCH" \
+              --title "Sync upstream $UPSTREAM_BRANCH ($SHORT)" --body-file "$RUNNER_TEMP/pr.md"
+            pr=$(gh pr list --head "$SYNC_BRANCH" --base "$BASE_BRANCH" --state open --json number --jq '.[0].number')
+          fi
+          echo "number=$pr" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for checks and merge
+        if: steps.fetch.outputs.needed == 'true'
+        env:
+          PR: ${{ steps.pr.outputs.number }}
+        run: |
+          source "$RUNNER_TEMP/report.sh"
+          head_sha=$(git rev-parse HEAD)
+
+          # Checks take a moment to register on a freshly pushed commit
+          for _ in $(seq 1 30); do
+            count=$(gh api "repos/$GITHUB_REPOSITORY/commits/$head_sha/check-runs" --jq '.total_count')
+            [ "$count" -gt 0 ] && break
+            sleep 20
+          done
+          if [ "$count" -eq 0 ]; then
+            echo "No checks registered for $head_sha" > "$RUNNER_TEMP/problem.md"
+            report_problem "## No checks ran on sync PR #$PR" "$RUNNER_TEMP/problem.md"
+            exit 1
+          fi
+
+          if ! gh pr checks "$PR" --watch --fail-fast --interval 60; then
+            echo "Tests failed on the sync PR, so it was left open: #$PR" > "$RUNNER_TEMP/problem.md"
+            report_problem "## Sync PR checks failed" "$RUNNER_TEMP/problem.md"
+            exit 1
+          fi
+
+          # A merge commit keeps upstream's history, so the next sync only brings in new commits
+          gh pr merge "$PR" --merge --delete-branch
+          close_problem "#$PR"

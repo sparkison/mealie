@@ -1,0 +1,6 @@
+# Alembic revisions that exist only in this fork, one per line.
+# dev/scripts/fork_migrations.py keeps them in the chain after upstream merges.
+# Add the revision of every new fork migration here.
+a8f3b2c1d4e5  # add recipe_scale to group_meal_plans
+d1e2f3a4b5c6  # add named meal plans
+e2f3a4b5c6d7  # add recipe_scale to named plan entries

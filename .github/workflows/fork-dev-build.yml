@@ -9,6 +9,10 @@ on:
       - '.devcontainer/**'
       - '.vscode/**'
       - 'docs/**'
+  # Upstream sync PRs (fork-upstream-sync.yml) wait for these tests before merging
+  pull_request:
+    branches:
+      - sparkison
 
 concurrency:
   group: fork-dev-${{ github.ref }}
@@ -31,7 +35,7 @@ jobs:
 
   publish:
     name: Build and Push Dev Image
-    if: github.repository == 'sparkison/mealie'
+    if: github.repository == 'sparkison/mealie' && github.event_name == 'push'
     needs:
       - frontend-tests
       - backend-tests
