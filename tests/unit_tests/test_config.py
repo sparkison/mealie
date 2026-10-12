@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from mealie.core.config import get_app_settings
 from mealie.core.settings.settings import AppSettings, determine_secrets
@@ -62,6 +63,7 @@ def test_default_connection_args(monkeypatch):
 def test_pg_connection_args(monkeypatch):
     monkeypatch.setenv("DB_ENGINE", "postgres")
     monkeypatch.setenv("POSTGRES_SERVER", "postgres")
+    monkeypatch.setenv("POSTGRES_DB", "mealie")
     get_app_settings.cache_clear()
     app_settings = get_app_settings()
     assert app_settings.DB_URL == "postgresql://mealie:mealie@postgres:5432/mealie"
@@ -188,8 +190,8 @@ class SMTPValidationCase:
     auth_strategy: str
     from_name: str
     from_email: str
-    user: str
-    password: str
+    user: str | None
+    password: str | None
     is_valid: bool
 
 
@@ -205,6 +207,24 @@ smtp_validation_cases = [
     (
         "no_auth",
         SMTPValidationCase("email.mealie.io", "25", "none", "Mealie", "mealie@mealie.io", "", "", True),
+    ),
+    (
+        "tls_without_credentials",
+        SMTPValidationCase("email.mealie.io", "587", "tls", "Mealie", "mealie@mealie.io", None, None, True),
+    ),
+    (
+        "ssl_without_credentials",
+        SMTPValidationCase("email.mealie.io", "465", "ssl", "Mealie", "mealie@mealie.io", "", "", True),
+    ),
+    (
+        "tls_with_username_only",
+        SMTPValidationCase(
+            "email.mealie.io", "587", "tls", "Mealie", "mealie@mealie.io", "mealie@mealie.io", "", False
+        ),
+    ),
+    (
+        "ssl_with_password_only",
+        SMTPValidationCase("email.mealie.io", "465", "ssl", "Mealie", "mealie@mealie.io", "", "mealie-password", False),
     ),
     (
         "good_data_tls",
@@ -224,7 +244,7 @@ smtp_validation_cases = [
         SMTPValidationCase(
             "email.mealie.io",
             "465",
-            "tls",
+            "ssl",
             "Mealie",
             "mealie@mealie.io",
             "mealie@mealie.io",
@@ -293,7 +313,7 @@ ldap_cases_ids = [x[0] for x in ldap_validation_cases]
 def test_ldap_settings_validation(data: LDAPValidationCase, monkeypatch: pytest.MonkeyPatch):
     for setting in data.settings:
         if setting.value is not None:
-            monkeypatch.setenv(setting.name, setting.value)
+            monkeypatch.setenv(setting.name, str(setting.value))
         else:
             monkeypatch.delenv(setting.name, raising=False)
 
@@ -365,7 +385,7 @@ oidc_cases_ids = [x[0] for x in oidc_validation_cases]
 def test_oidc_settings_validation(data: OIDCValidationCase, monkeypatch: pytest.MonkeyPatch):
     for setting in data.settings:
         if setting.value is not None:
-            monkeypatch.setenv(setting.name, setting.value)
+            monkeypatch.setenv(setting.name, str(setting.value))
         else:
             monkeypatch.delenv(setting.name, raising=False)
 
@@ -373,6 +393,50 @@ def test_oidc_settings_validation(data: OIDCValidationCase, monkeypatch: pytest.
     app_settings = get_app_settings()
 
     assert app_settings.OIDC_READY is data.is_valid
+
+
+VALID_OIDC_ENV = {
+    "OIDC_AUTH_ENABLED": "true",
+    "OIDC_CLIENT_ID": "id",
+    "OIDC_CLIENT_SECRET": "secret",
+    "OIDC_CONFIGURATION_URL": "url",
+}
+
+native_oidc_cases = [
+    pytest.param({}, None, True, False, id="defaults"),
+    pytest.param({"OIDC_NATIVE_CLIENT_ID": "native-app"}, "native-app", True, False, id="native id set"),
+    pytest.param({"OIDC_NATIVE_CONFIDENTIAL": "false"}, None, False, False, id="public native client"),
+    pytest.param(
+        {**VALID_OIDC_ENV, "OIDC_NATIVE_CONFIDENTIAL": "false"},
+        None,
+        False,
+        True,
+        id="native settings optional for OIDC_READY",
+    ),
+]
+
+
+@pytest.mark.parametrize(("env", "native_id", "confidential", "oidc_ready"), native_oidc_cases)
+def test_oidc_native_settings(
+    env: dict[str, str],
+    native_id: str | None,
+    confidential: bool,
+    oidc_ready: bool,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    for name in ("OIDC_AUTH_ENABLED", "OIDC_CLIENT_ID", "OIDC_CLIENT_SECRET", "OIDC_CONFIGURATION_URL"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.delenv("OIDC_NATIVE_CLIENT_ID", raising=False)
+    monkeypatch.delenv("OIDC_NATIVE_CONFIDENTIAL", raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+
+    get_app_settings.cache_clear()
+    app_settings = get_app_settings()
+
+    assert app_settings.OIDC_NATIVE_CLIENT_ID == native_id
+    assert app_settings.OIDC_NATIVE_CONFIDENTIAL is confidential
+    assert app_settings.OIDC_READY is oidc_ready
 
 
 def test_sensitive_settings_mask(monkeypatch: pytest.MonkeyPatch):
@@ -393,6 +457,51 @@ def test_sensitive_settings_mask(monkeypatch: pytest.MonkeyPatch):
     for setting in sensitive_settings:
         assert settings[setting] == "*****"
         assert settings_json[setting] == "*****"
+
+
+_SCRAPER_URL_FIELDS = ["SCRAPER_PROXY_URL", "SCRAPER_FLARESOLVERR_URL"]
+
+
+@pytest.mark.parametrize("field", _SCRAPER_URL_FIELDS)
+@pytest.mark.parametrize(
+    "value",
+    [
+        "flaresolverr:8191",  # missing scheme
+        "192.168.1.5:8191",  # bare host:port
+        "just-a-hostname",  # no scheme, no port
+    ],
+)
+def test_scraper_url_rejects_missing_scheme(field: str, value: str, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(field, value)
+    get_app_settings.cache_clear()
+
+    with pytest.raises(ValidationError):
+        get_app_settings()
+
+
+@pytest.mark.parametrize("field", _SCRAPER_URL_FIELDS)
+@pytest.mark.parametrize(
+    "value",
+    [
+        "http://flaresolverr:8191",
+        "https://fs.example.com:8191/",
+        "http://user:pass@host:8080",  # userinfo is allowed
+        "socks5://host:1080",  # non-http schemes (valid for proxies) are not rejected
+    ],
+)
+def test_scraper_url_accepts_valid(field: str, value: str, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(field, value)
+    get_app_settings.cache_clear()
+
+    assert getattr(get_app_settings(), field) == value
+
+
+@pytest.mark.parametrize("field", _SCRAPER_URL_FIELDS)
+def test_scraper_url_allows_unset(field: str, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv(field, raising=False)
+    get_app_settings.cache_clear()
+
+    assert getattr(get_app_settings(), field) is None
 
 
 class DetermineSecretsTests:
