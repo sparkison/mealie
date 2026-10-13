@@ -39,12 +39,12 @@
               hide-details
               @keyup.enter="createAndOpenList"
             />
-            <div class="d-flex justify-end mt-2 gap-2">
+            <div class="d-flex justify-end mt-2 ga-2">
               <v-btn
                 variant="text"
                 color="grey"
                 size="small"
-                @click="newListForm.show = false; newListForm.name = ''"
+                @click="resetNewListForm"
               >
                 {{ $t("general.cancel") }}
               </v-btn>
@@ -237,6 +237,7 @@
 <script setup lang="ts">
 import { toRefs } from "@vueuse/core";
 import { useUserApi } from "~/composables/api";
+import { useNewShoppingListForm } from "~/composables/shopping-list-page/use-add-to-shopping-list-dialog";
 import { alert } from "~/composables/use-toast";
 import { useShoppingListPreferences } from "~/composables/use-users/preferences";
 import type { RecipeIngredient, ShoppingListAddRecipeParamsBulk, ShoppingListSummary } from "~/lib/api/types/household";
@@ -267,13 +268,16 @@ export interface ShoppingListRecipeIngredientSection {
 
 interface Props {
   recipes?: RecipeWithScale[];
+  shoppingLists?: ShoppingListSummary[];
 }
 const props = withDefaults(defineProps<Props>(), {
   recipes: undefined,
+  shoppingLists: () => [],
 });
 
-// Two-way so lists created from this dialog stay in the parent's list on the next open
-const shoppingLists = defineModel<ShoppingListSummary[]>("shoppingLists", { default: () => [] });
+const emit = defineEmits<{
+  "list-created": [list: ShoppingListSummary];
+}>();
 
 const dialog = defineModel<boolean>({ default: false });
 
@@ -282,6 +286,7 @@ const auth = useMealieAuth();
 const api = useUserApi();
 const preferences = useShoppingListPreferences();
 const router = useRouter();
+const { form: newListForm, reset: resetNewListForm, create: createShoppingList } = useNewShoppingListForm();
 const ready = ref(false);
 
 // Capture values at initialization to avoid reactive updates
@@ -302,7 +307,7 @@ const selectedShoppingList = ref<ShoppingListSummary | null>(null);
 watch([dialog, () => preferences.value.viewAllLists], () => {
   if (dialog.value) {
     currentHouseholdSlug.value = auth.user.value?.householdSlug || "";
-    filteredShoppingLists.value = shoppingLists.value.filter(
+    filteredShoppingLists.value = props.shoppingLists.filter(
       list => preferences.value.viewAllLists || list.userId === auth.user.value?.id,
     );
 
@@ -444,30 +449,17 @@ async function consolidateRecipesIntoSections(recipes: RecipeWithScale[]) {
   recipeIngredientSections.value = Array.from(recipeSectionMap.values());
 }
 
-const newListForm = reactive({
-  show: false,
-  name: "",
-  loading: false,
-});
-
 async function createAndOpenList() {
-  if (!newListForm.name.trim()) return;
-
-  newListForm.loading = true;
-  const { data } = await api.shopping.lists.createOne({ name: newListForm.name.trim() });
-  newListForm.loading = false;
-
-  if (!data) {
-    alert.error(i18n.t("shopping-list.failed-to-create-shopping-list"));
+  const list = await createShoppingList();
+  if (!list) {
     return;
   }
 
-  shoppingLists.value = [...shoppingLists.value, data as ShoppingListSummary];
-  filteredShoppingLists.value.push(data as ShoppingListSummary);
-  newListForm.show = false;
-  newListForm.name = "";
+  filteredShoppingLists.value.push(list);
+  // the parent owns `shoppingLists`, which this dialog re-filters from every time it's opened
+  emit("list-created", list);
 
-  await openShoppingListIngredientDialog(data as ShoppingListSummary);
+  await openShoppingListIngredientDialog(list);
 }
 
 function initState() {
@@ -476,8 +468,7 @@ function initState() {
   state.shoppingListShowAllToggled = false;
   recipeIngredientSections.value = [];
   selectedShoppingList.value = null;
-  newListForm.show = false;
-  newListForm.name = "";
+  resetNewListForm();
 }
 
 initState();

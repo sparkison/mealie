@@ -187,15 +187,20 @@ const route = useRoute();
 const groupSlug = computed(() => route.params.groupSlug || auth.user.value?.groupSlug || "");
 const showRecipeContent = computed(() => props.recipeId && props.slug);
 const recipeRoute = computed<string>(() => {
-  if (!showRecipeContent.value) return "";
-  const base = `/g/${groupSlug.value}/r/${props.slug}`;
+  if (!showRecipeContent.value) {
+    return "";
+  }
+
+  const recipePath = `/g/${groupSlug.value}/r/${props.slug}`;
+  // open the recipe at the same scale it's shown with here (e.g. the scale of a meal plan entry);
+  // sparkison fork: the entry ids let the recipe page save scale changes back to the entry
   const params = new URLSearchParams();
   if (props.scale !== 1) params.set("scale", String(props.scale));
   if (props.mealPlanId !== undefined) params.set("mealplanid", String(props.mealPlanId));
   if (props.namedPlanEntryId) params.set("namedplanentryid", props.namedPlanEntryId);
   if (props.namedPlanId) params.set("namedplanid", props.namedPlanId);
-  const queryString = params.toString();
-  return queryString ? `${base}?${queryString}` : base;
+  const query = params.toString();
+  return query ? `${recipePath}?${query}` : recipePath;
 });
 const cursor = computed(() => showRecipeContent.value ? "pointer" : "auto");
 </script>

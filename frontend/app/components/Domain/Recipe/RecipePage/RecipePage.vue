@@ -413,13 +413,14 @@ const hasLinkedIngredients = computed(() => {
 const paramsEdit = useRouteQuery<BooleanString>("edit", "");
 const paramsParse = useRouteQuery<BooleanString>("parse", "");
 const paramsCook = useRouteQuery<BooleanString>("cook", "");
+const paramsScale = useRouteQuery<string>("scale", "");
 const { hydrateCookMode } = useCookModeQuery({
   cookQuery: paramsCook,
   isEditMode,
   pageMode,
   setMode,
 });
-const paramsScale = useRouteQuery<string>("scale", "");
+// sparkison fork: set when opened from a meal plan or custom plan entry, so scale changes are saved back to it
 const paramsMealPlanId = useRouteQuery<string>("mealplanid", "");
 const paramsNamedPlanEntryId = useRouteQuery<string>("namedplanentryid", "");
 const paramsNamedPlanId = useRouteQuery<string>("namedplanid", "");
@@ -436,14 +437,13 @@ onMounted(async () => {
     toggleIsParsing(true);
   }
 
-  hydrateCookMode();
-
-  if (paramsScale.value) {
-    const parsed = parseFloat(paramsScale.value);
-    if (!isNaN(parsed) && parsed > 0) {
-      scale.value = parsed;
-    }
+  // e.g. set when opened from a meal plan entry, so the recipe starts at the entry's scale
+  const initialScale = parseFloat(paramsScale.value);
+  if (initialScale > 0 && isFinite(initialScale)) {
+    scale.value = initialScale;
   }
+
+  hydrateCookMode();
 
   if (paramsMealPlanId.value) {
     const id = parseInt(paramsMealPlanId.value, 10);

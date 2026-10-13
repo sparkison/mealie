@@ -58,16 +58,12 @@
             hide-details
           />
 
-          <v-number-input
-            v-if="isRecipe"
+          <RecipeScaleEditButton
+            v-if="isRecipe && recipe"
             v-model="recipeScale"
             class="mt-4"
-            :min="0.25"
-            :step="0.5"
-            :precision="null"
-            inset
-            hide-details
-            :label="$t('recipe.servings-scale')"
+            :recipe-servings="recipeServings"
+            edit-scale
           />
         </v-col>
 
@@ -142,6 +138,7 @@
 
 <script setup lang="ts">
 import { format } from "date-fns";
+import RecipeScaleEditButton from "~/components/Domain/Recipe/RecipeScaleEditButton.vue";
 import RecipeSelector from "~/components/Domain/Recipe/RecipeSelector.vue";
 import { usePlanTypeOptions } from "~/composables/use-group-mealplan";
 import { buildRuleQueryFilter, useMealplanRules } from "~/composables/use-mealplan-rules";
@@ -188,6 +185,13 @@ const isRecipe = computed(() => entryMode.value === "recipe");
 // Rules are tied to days of the week, so they don't apply to undated named plans
 const applicableRuleFilter = computed(() => props.namedPlan ? null : buildRuleQueryFilter(rules.value, selectedDate.value, entryType.value));
 const ruleQueryFilter = computed(() => ignoreRules.value ? null : applicableRuleFilter.value);
+
+const recipeServings = computed(() => recipe.value?.recipeServings || recipe.value?.recipeYieldQuantity || 1);
+
+// a scale is only meaningful for the recipe it was chosen for
+watch(() => recipe.value?.id, () => {
+  recipeScale.value = 1;
+}, { flush: "sync" });
 
 const submitDisabled = computed(() => isRecipe.value ? !recipe.value : !title.value.trim());
 

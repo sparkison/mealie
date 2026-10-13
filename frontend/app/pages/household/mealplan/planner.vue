@@ -3,8 +3,9 @@
     <RecipeDialogAddToShoppingList
       v-if="shoppingLists"
       v-model="shoppingListDialog"
-      v-model:shopping-lists="shoppingLists"
       :recipes="viewMode === 'named-plan' ? planEntryRecipesWithScales : weekRecipesWithScales"
+      :shopping-lists="shoppingLists"
+      @list-created="addShoppingList"
     />
 
     <!-- New Custom Plan dialog -->
@@ -293,7 +294,7 @@
 import { addDays, differenceInCalendarDays, format, isSameDay, isValid, parseISO } from "date-fns";
 import RecipeDialogAddToShoppingList from "~/components/Domain/Recipe/RecipeDialogAddToShoppingList.vue";
 import { useAddToShoppingListDialog } from "~/composables/shopping-list-page/use-add-to-shopping-list-dialog";
-import { useMealplans } from "~/composables/use-group-mealplan";
+import { getScaledRecipes, useMealplans } from "~/composables/use-group-mealplan";
 import { useHouseholdSelf } from "~/composables/use-households";
 import { useNamedMealPlans } from "~/composables/use-named-meal-plans";
 import { useUserMealPlanPreferences } from "~/composables/use-users/preferences";
@@ -315,7 +316,7 @@ const i18n = useI18n();
 const api = useUserApi();
 const { $globals } = useNuxtApp();
 const { household, actions: householdActions } = useHouseholdSelf();
-const { shoppingLists, open: shoppingListDialog, addAllToList } = useAddToShoppingListDialog();
+const { shoppingLists, open: shoppingListDialog, addAllToList, addShoppingList } = useAddToShoppingListDialog();
 
 useSeoMeta({
   title: i18n.t("meal-plan.dinner-this-week"),
@@ -457,10 +458,7 @@ const hasRecipes = computed(() => {
 });
 
 const weekRecipesWithScales = computed(() => {
-  return mealsByDate.value
-    .flatMap(({ meals }) => meals)
-    .filter(({ recipe }) => recipe)
-    .map(({ recipe, recipeScale }) => ({ ...recipe!, scale: recipeScale ?? 1 }));
+  return getScaledRecipes(mealsByDate.value.flatMap(({ meals }) => meals));
 });
 
 const hasMeals = computed(() => {

@@ -1,7 +1,7 @@
 """add named meal plans
 
 Revision ID: d1e2f3a4b5c6
-Revises: a8f3b2c1d4e5
+Revises: 4395a04f7784
 Create Date: 2026-04-27 00:00:00.000000
 
 """
@@ -13,7 +13,7 @@ from mealie.db.migration_types import GUID
 
 # revision identifiers, used by Alembic.
 revision: str = "d1e2f3a4b5c6"
-down_revision: str | None = "a8f3b2c1d4e5"
+down_revision: str | None = "4395a04f7784"
 branch_labels: str | tuple[str, ...] | None = None
 depends_on: str | tuple[str, ...] | None = None
 

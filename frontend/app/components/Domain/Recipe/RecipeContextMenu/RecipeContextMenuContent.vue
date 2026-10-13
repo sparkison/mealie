@@ -41,8 +41,9 @@
   <RecipeDialogAddToShoppingList
     v-if="shoppingLists && recipeRefWithScale"
     v-model="shoppingListDialog"
-    v-model:shopping-lists="shoppingLists"
     :recipes="[recipeRefWithScale]"
+    :shopping-lists="shoppingLists"
+    @list-created="addShoppingList"
   />
 
   <v-list density="compact">
@@ -158,7 +159,7 @@ const emit = defineEmits<{
 }>();
 
 const api = useUserApi();
-const { open: shoppingListDialog, shoppingLists, getShoppingLists } = useAddToShoppingListDialog();
+const { open: shoppingListDialog, shoppingLists, getShoppingLists, addShoppingList } = useAddToShoppingListDialog();
 
 const printPreferencesDialog = ref(false);
 const shareDialog = ref(false);

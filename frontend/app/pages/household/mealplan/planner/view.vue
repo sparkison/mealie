@@ -93,14 +93,13 @@
                     >
                       <RecipeCardMobile
                         :recipe-id="mealplan.recipe ? mealplan.recipe.id! : ''"
+                        :scale="mealplan.recipeScale ?? 1"
                         :rating="mealplan.recipe ? mealplan.recipe.rating! : 0"
                         :slug="mealplan.recipe ? mealplan.recipe.slug! : mealplan.title!"
                         :description="mealplan.recipe ? mealplan.recipe.description! : mealplan.text!"
                         :name="mealplan.recipe ? mealplan.recipe.name! : mealplan.title!"
                         :image="mealplan.recipe ? mealplan.recipe.image! : undefined"
-                        :tags="mealplan.recipe ? (mealplan.recipe.tags ?? []) : []"
-                        :scale="mealplan.recipeScale ?? 1"
-                        :meal-plan-id="mealplan.id"
+                        :tags="mealplan.recipe ? mealplan.recipe.tags! : []"
                         :context-menu-leading-items="[
                           {
                             title: $t('meal-plan.remove-from-plan'),
@@ -127,10 +126,7 @@
                           />
                         </template>
                       </RecipeCardMobile>
-                      <div
-                        v-if="mealplan.recipe"
-                        class="d-flex justify-center pt-1 pb-2"
-                      >
+                      <div v-if="mealplan.recipe" class="d-flex justify-end pt-1">
                         <MealPlanScaleControl :meal="mealplan" :actions="actions" />
                       </div>
                     </div>
@@ -146,9 +142,9 @@
 </template>
 
 <script setup lang="ts">
-import MealPlanScaleControl from "~/components/Domain/Household/MealPlanScaleControl.vue";
 import NamedPlanScaleControl from "~/components/Domain/Household/NamedPlanScaleControl.vue";
 import MealPlanNoteMenu from "~/components/Domain/Mealplan/MealPlanNoteMenu.vue";
+import MealPlanScaleControl from "~/components/Domain/Mealplan/MealPlanScaleControl.vue";
 import RecipeCardMobile from "~/components/Domain/Recipe/RecipeCardMobile.vue";
 import type { MealsByDate } from "~/composables/use-group-mealplan";
 import type { ReadNamedPlanEntry, ReadPlanEntry } from "~/lib/api/types/meal-plan";

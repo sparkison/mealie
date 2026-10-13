@@ -6,10 +6,11 @@ For everything else (features, configuration, API), see the [upstream project](h
 
 ## What this fork adds
 
-- **Meal plan servings scale**: set a servings scale on each meal plan entry. The scale carries into "Add to shopping list" (per recipe, per day or for the whole week) and into the recipe page when you open the recipe from the planner.
-- **Custom meal plans**: named, undated plans (e.g. "Week A", "Holidays") alongside the calendar. Add recipes to them directly, move a week's meals into one, and apply a plan to any week to fill in the calendar.
+- **Custom meal plans**: named, undated plans (e.g. "Week A", "Holidays") alongside the calendar. Add recipes to them directly, move a week's meals into one, and apply a plan to any week to fill in the calendar. Each entry keeps its own servings scale.
 - **Filter by favorites**: show only your favorite recipes on the recipe search page.
-- **New shopping list on the fly**: create a shopping list straight from the "Add to shopping list" dialog.
+- **Servings saved back from the recipe page**: when you open a recipe from a meal plan or custom plan entry, changing its servings updates that entry.
+
+Per-entry meal plan servings and creating a shopping list on the fly started in this fork and are now part of upstream Mealie ([#8701](https://github.com/mealie-recipes/mealie/pull/8701)).
 
 ## Using it
 

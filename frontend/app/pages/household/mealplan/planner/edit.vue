@@ -233,14 +233,13 @@
                     </v-list>
                   </v-menu>
                   <v-chip
-                    v-if="mealplan.recipe && mealplan.recipeScale && mealplan.recipeScale !== 1"
-                    size="small"
-                    color="primary"
-                    variant="tonal"
-                    label
+                    v-if="mealplan.recipe && (mealplan.recipeScale ?? 1) !== 1"
                     class="ml-2"
+                    label
+                    size="small"
+                    color="secondary"
                   >
-                    {{ mealplan.recipeScale }}x
+                    {{ $n(mealplan.recipeScale ?? 1, { maximumFractionDigits: 2 }) }}x
                   </v-chip>
                   <v-btn
                     v-if="mealplan.recipe && mealplan.entryType"
