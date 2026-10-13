@@ -36,6 +36,8 @@ jobs:
     timeout-minutes: 120
     env:
       GH_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
+      # In a fork, gh targets the parent repository by default; keep every call on this one
+      GH_REPO: ${{ github.repository }}
 
     steps:
       - name: Checkout fork
