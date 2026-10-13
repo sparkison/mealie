@@ -55,6 +55,11 @@ jobs:
       - name: Define issue helpers
         run: |
           cat > "$RUNNER_TEMP/report.sh" <<'EOF'
+          # summary <markdown...>: add to the summary shown at the top of the run page
+          summary() {
+            printf '%s\n' "$@" >> "$GITHUB_STEP_SUMMARY"
+          }
+
           # report_problem <title line> <body file>: create or update the single sync issue
           report_problem() {
             gh label create "$ISSUE_LABEL" --color D93F0B --description "Upstream sync needs attention" --force >/dev/null
@@ -63,10 +68,17 @@ jobs:
             local issue
             issue=$(gh issue list --label "$ISSUE_LABEL" --state open --json number --jq '.[0].number')
             if [ -n "$issue" ]; then
-              gh issue edit "$issue" --body-file "$body"
+              gh issue edit "$issue" --body-file "$body" >/dev/null
             else
-              gh issue create --title "Upstream sync needs attention" --label "$ISSUE_LABEL" --body-file "$body"
+              gh issue create --title "Upstream sync needs attention" --label "$ISSUE_LABEL" --body-file "$body" >/dev/null
+              issue=$(gh issue list --label "$ISSUE_LABEL" --state open --json number --jq '.[0].number')
             fi
+
+            # The run fails on purpose: the failure email is the notification, and this summary explains it
+            touch "$RUNNER_TEMP/reported"
+            summary "# Upstream sync needs your attention" "" "Nothing was merged into \`$BASE_BRANCH\`. Details and fix steps are in issue #$issue: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/issues/$issue" ""
+            summary "$1" ""
+            cat "$2" >> "$GITHUB_STEP_SUMMARY"
           }
 
           close_problem() {
@@ -89,6 +101,8 @@ jobs:
           if git merge-base --is-ancestor "$sha" HEAD; then
             echo "$BASE_BRANCH already contains upstream $sha"
             echo "needed=false" >> "$GITHUB_OUTPUT"
+            source "$RUNNER_TEMP/report.sh"
+            summary "# Nothing to sync" "" "\`$BASE_BRANCH\` is already up to date with upstream \`$UPSTREAM_BRANCH\` (\`${sha:0:9}\`)."
           else
             echo "needed=true" >> "$GITHUB_OUTPUT"
           fi
@@ -170,6 +184,7 @@ jobs:
         if: steps.fetch.outputs.needed == 'true'
         env:
           PR: ${{ steps.pr.outputs.number }}
+          SHORT: ${{ steps.fetch.outputs.short }}
         run: |
           source "$RUNNER_TEMP/report.sh"
           head_sha=$(git rev-parse HEAD)
@@ -195,3 +210,23 @@ jobs:
           # A merge commit keeps upstream's history, so the next sync only brings in new commits
           gh pr merge "$PR" --merge --delete-branch
           close_problem "#$PR"
+
+          summary "# Synced upstream" "" \
+            "Merged upstream \`$UPSTREAM_BRANCH\` (\`$SHORT\`) into \`$BASE_BRANCH\` via #$PR: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/pull/$PR" "" \
+            "A new image is being built by Fork Dev Build." "" "Migration guard:" "" '```'
+          cat "$RUNNER_TEMP/migrations.log" >> "$GITHUB_STEP_SUMMARY"
+          summary '```'
+
+      - name: Explain unexpected failure
+        if: failure()
+        run: |
+          # Sync problems are already explained by report_problem; anything else is the workflow itself breaking
+          if [ ! -f "$RUNNER_TEMP/reported" ]; then
+            {
+              echo "# The sync workflow itself failed"
+              echo
+              echo "This isn't a problem with upstream's changes, and no issue was opened. A step of the automation errored"
+              echo "(for example an expired \`FORK_SYNC_TOKEN\`, a GitHub outage or a bug in this workflow)."
+              echo "Open the failed step below for the error. Nothing was merged into \`$BASE_BRANCH\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
