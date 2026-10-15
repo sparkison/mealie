@@ -103,6 +103,8 @@ jobs:
             echo "needed=false" >> "$GITHUB_OUTPUT"
             source "$RUNNER_TEMP/report.sh"
             summary "# Nothing to sync" "" "\`$BASE_BRANCH\` is already up to date with upstream \`$UPSTREAM_BRANCH\` (\`${sha:0:9}\`)."
+            # e.g. a conflict that was resolved by hand since the last run
+            close_problem "$BASE_BRANCH, which already contains upstream \`${sha:0:9}\`"
           else
             echo "needed=true" >> "$GITHUB_OUTPUT"
           fi
