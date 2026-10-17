@@ -49,6 +49,7 @@ class RepositoryNamedMealPlans(GroupRepositoryGeneric[ReadNamedMealPlan, GroupMe
             entry_type=data.entry_type,
             title=data.title,
             text=data.text,
+            recipe_scale=data.recipe_scale,
         )
         self.session.add(entry)
         self.session.commit()
