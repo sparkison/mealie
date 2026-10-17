@@ -7,6 +7,7 @@
       :shopping-lists="shoppingLists"
       @list-created="addShoppingList"
     />
+    <GroupMealPlanCalendarDialog v-model="calendarDialog" />
 
     <!-- New Custom Plan dialog -->
     <BaseDialog
@@ -272,6 +273,7 @@
         @edit="router.push({ name: TABS.edit, query: route.query })"
         @view="router.push({ name: TABS.view, query: route.query })"
         @settings="router.push('/household/mealplan/settings')"
+        @calendar-feed="calendarDialog = true"
       />
     </div>
     <div>
@@ -292,6 +294,7 @@
 
 <script setup lang="ts">
 import { addDays, differenceInCalendarDays, format, isSameDay, isValid, parseISO } from "date-fns";
+import GroupMealPlanCalendarDialog from "~/components/Domain/Household/GroupMealPlanCalendarDialog.vue";
 import RecipeDialogAddToShoppingList from "~/components/Domain/Recipe/RecipeDialogAddToShoppingList.vue";
 import { useAddToShoppingListDialog } from "~/composables/shopping-list-page/use-add-to-shopping-list-dialog";
 import { getScaledRecipes, useMealplans } from "~/composables/use-group-mealplan";
@@ -317,6 +320,7 @@ const api = useUserApi();
 const { $globals } = useNuxtApp();
 const { household, actions: householdActions } = useHouseholdSelf();
 const { shoppingLists, open: shoppingListDialog, addAllToList, addShoppingList } = useAddToShoppingListDialog();
+const calendarDialog = ref(false);
 
 useSeoMeta({
   title: i18n.t("meal-plan.dinner-this-week"),
@@ -495,6 +499,11 @@ const planEntryRecipesWithScales = computed(() => {
 });
 
 const menuItems = computed(() => {
+  const calendarFeed = {
+    icon: $globals.icons.calendar,
+    text: i18n.t("meal-plan.calendar-feed"),
+    event: "calendar-feed",
+  };
   const settings = {
     icon: $globals.icons.cog,
     text: i18n.t("general.settings"),
@@ -515,6 +524,7 @@ const menuItems = computed(() => {
         event: "apply-plan",
         disabled: !selectedPlanId.value || planEntries.value.length === 0,
       },
+      calendarFeed,
       settings,
     ];
   }
@@ -532,6 +542,7 @@ const menuItems = computed(() => {
       event: "move-to-plan",
       disabled: !hasMeals.value,
     },
+    calendarFeed,
     settings,
   ];
 });
