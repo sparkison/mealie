@@ -409,6 +409,7 @@ class AppSettings(AppLoggingSettings):
     OIDC_GROUPS_CLAIM: str | None = "groups"
     OIDC_SCOPES_OVERRIDE: str | None = None
     OIDC_TLS_CACERTFILE: str | None = None
+    OIDC_VERIFY_X509_STRICT: bool = True
     OIDC_CLIENT_TIMEOUT: float | Literal["None", "default"] = "default"
 
     OIDC_NATIVE_CLIENT_ID: str | None = None
@@ -487,15 +488,6 @@ class AppSettings(AppLoggingSettings):
     def REVERSE_PROXY_AUTH_READY(self) -> bool:
         """Validates reverse proxy auth settings are all set"""
         return self.REVERSE_PROXY_AUTH_FEATURE.enabled
-
-    # ===============================================
-    # OpenAI Configuration
-
-    OPENAI_CUSTOM_PROMPT_DIR: str | None = None
-    """
-    Path to a folder containing custom prompt files;
-    files are individually optional, each prompt name will fall back to the default if no custom file exists
-    """
 
     # ===============================================
     # Scraper Configuration
