@@ -50,6 +50,10 @@ Upstream's version of a fork migration usually lands at the tip of its chain, po
 
 `a8f3b2c1d4e5` (meal plan recipe scale, upstreamed in #8701) went through this: upstream's file is patched to skip an existing `recipe_scale` column.
 
+## Checks upstream runs on every PR
+
+The sync PR runs upstream's own CI, so fork code has to pass upstream's rules too. They tighten over time, and a failure here blocks every sync until it's fixed. Run `task py:check` and `task ui:check` before pushing fork code; the one most likely to catch you out is `task py:semgrep`. Under `mealie/routes/`, raise `not_found()` / `forbidden()` from `mealie/routes/_base/permissions.py` instead of `HTTPException(404 / 403)`, and declare permissions with `dependencies=[require(Perm.X)]` instead of checking `user.can_*` in a handler (upstream #8769).
+
 ## Local development
 
 ```sh
