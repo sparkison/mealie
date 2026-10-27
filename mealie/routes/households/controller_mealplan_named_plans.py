@@ -8,6 +8,7 @@ from mealie.repos.all_repositories import get_repositories
 from mealie.routes._base import controller
 from mealie.routes._base.base_controllers import BaseCrudController
 from mealie.routes._base.mixins import HttpRepo
+from mealie.routes._base.permissions import not_found
 from mealie.routes._base.routers import UserAPIRouter
 from mealie.schema import mapper
 from mealie.schema.meal_plan.new_meal import PlanEntryType, ReadPlanEntry, SavePlanEntry
@@ -74,7 +75,7 @@ class NamedMealPlansController(BaseCrudController):
         # Verify plan belongs to this group
         plan = self.repos.named_meal_plans.get_one(item_id)
         if plan is None:
-            raise HTTPException(status_code=404, detail=ErrorResponse.respond("Plan not found"))
+            raise not_found("Plan not found")
         save = SaveNamedPlanEntry(
             plan_id=item_id,
             recipe_id=data.recipe_id,
@@ -89,28 +90,28 @@ class NamedMealPlansController(BaseCrudController):
     def get_entry(self, item_id: UUID4, entry_id: UUID4):
         entry = self.repos.named_meal_plans.get_entry(item_id, entry_id)
         if entry is None:
-            raise HTTPException(status_code=404, detail=ErrorResponse.respond("Entry not found"))
+            raise not_found("Entry not found")
         return entry
 
     @router.put("/{item_id}/entries/{entry_id}", response_model=ReadNamedPlanEntry)
     def update_entry(self, item_id: UUID4, entry_id: UUID4, data: CreateNamedPlanEntry):
         updated = self.repos.named_meal_plans.update_entry(item_id, entry_id, data)
         if updated is None:
-            raise HTTPException(status_code=404, detail=ErrorResponse.respond("Entry not found"))
+            raise not_found("Entry not found")
         return updated
 
     @router.delete("/{item_id}/entries/{entry_id}", status_code=204)
     def remove_entry(self, item_id: UUID4, entry_id: UUID4):
         deleted = self.repos.named_meal_plans.delete_entry(item_id, entry_id)
         if not deleted:
-            raise HTTPException(status_code=404, detail=ErrorResponse.respond("Entry not found"))
+            raise not_found("Entry not found")
 
     @router.post("/{item_id}/random", response_model=ReadNamedPlanEntry, status_code=201)
     def add_random_entry(self, item_id: UUID4, data: AddRandomNamedPlanEntry):
         """Pick a random recipe (following household meal-plan rules) and add it to the named plan."""
         plan = self.repos.named_meal_plans.get_one(item_id)
         if plan is None:
-            raise HTTPException(status_code=404, detail=ErrorResponse.respond("Plan not found"))
+            raise not_found("Plan not found")
 
         entry_type = PlanEntryType(data.entry_type) if data.entry_type else PlanEntryType.dinner
         today = datetime.now(UTC).date()
@@ -130,9 +131,7 @@ class NamedMealPlansController(BaseCrudController):
             )
         )
         if not recipes_data.items:
-            raise HTTPException(
-                status_code=404, detail=ErrorResponse.respond(self.t("mealplan.no-recipes-match-your-rules"))
-            )
+            raise not_found(self.t("mealplan.no-recipes-match-your-rules"))
 
         recipe = recipes_data.items[0]
         save = SaveNamedPlanEntry(
